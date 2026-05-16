@@ -50,7 +50,7 @@ class BALL():
     
     def step(self,paddle):
 
-        self.killcooldown -= 0
+        self.killcooldown -= 1
 
         if not BALL.start:
             self.x = paddle.x + paddle.width/2 - self.size/2
@@ -132,9 +132,7 @@ class BLOCK():
         self.goindown = 260
 
     def step(self,ball):
-
-        ball.killcooldown -= 1
-
+        
         if self.goindown > 1:
             spd = self.goindown/25
             self.goindown -= spd
