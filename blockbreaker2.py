@@ -22,35 +22,43 @@ blocksprites = [
 def degtorad(angle):
     return angle * (pi/180)
 
+def rad_from_center_diff(rect1,rect2,incr,mult = 1,anglemax = 70):
+    angle = rect1.centerx - rect2.centerx
+    angle *= mult
+    angle = min(angle, anglemax)
+    angle = max(angle, -anglemax)
+    if abs(angle) < 10:
+        if angle < 0: 
+            angle = -10
+        else:
+            angle = 10
+    return degtorad(angle+incr)
+
 def drawtext(text,size,color,centerx,centery):
     font = g.font.Font('HERCULESPIXELFONTREGULAR-OVAX0.OTF', size)
     rtext = font.render(str(text),True,color)
     textrect = rtext.get_rect(center = (centerx, centery))
     WIN.blit(rtext, textrect)
 
-def checkAABBCollision(A, B):
-    AisToTheRightOfB = A.left > B.right
-    AisToTheLeftOfB = A.right < B.left
-    AisAboveB = A.bottom < B.top
-    AisBelowB = A.top > B.bottom
-    return not (AisToTheRightOfB or AisToTheLeftOfB or AisAboveB or AisBelowB)
-
 class BALL():
+    spd = 6
     size = 35
     start = False
-    spd = 7
-    vel = [spd*cos(0),spd*sin(0)]
-    alive = True
     sprite = g.transform.scale(g.image.load('sprites/ball.png').convert_alpha(), (size,size))
     
     def __init__(self):
+        self.rad = 2
+        self.alive = True
+        self.tempspd = 0
+        self.vel = [self.spd*cos(0),self.spd*sin(0)]
         self.x = WIDTH/2 - self.size/2
         self.y = HEIGHT*.85
         self.killcooldown = 0
-    
+
     def step(self,paddle):
 
         self.killcooldown -= 1
+        if self.tempspd > 0: self.tempspd -= 2
 
         if not BALL.start:
             self.x = paddle.x + paddle.width/2 - self.size/2
@@ -60,34 +68,33 @@ class BALL():
                 angle = 40
                 if keys[g.K_a] or keys[g.K_LEFT]:
                     angle *= -1
-                rad = degtorad(angle-90)
-                self.vel[0] = self.spd*cos(rad)
-                self.vel[1] = self.spd*sin(rad)
+                self.rad = degtorad(angle-90)
+                self.vel[0] = self.spd*cos(self.rad)
+                self.vel[1] = self.spd*sin(self.rad)
                 BALL.start = True
         else:
             myrect = g.Rect(self.x+self.vel[0],self.y+self.vel[1],self.size+self.vel[0],self.size+self.vel[1])
             paddlerect = g.Rect(paddle.x,paddle.y,paddle.width,paddle.height)
 
             if myrect.colliderect(paddlerect):
-                angle = myrect.centerx - paddlerect.centerx
-                angle = min(angle, 70)
-                angle = max(angle, -70)
-                if angle > 0 and angle < 5:
-                    angle = 5
-                if angle < 0 and angle > -5:
-                    angle = -5
-                rad = degtorad(angle-90)
-                self.vel[0] = self.spd*cos(rad)
-                self.vel[1] = self.spd*sin(rad)
+                if abs(myrect.top - paddlerect.bottom) < abs(myrect.bottom - paddlerect.top):
+                    self.tempspd+=100
+                    self.rad = rad_from_center_diff(myrect,paddlerect,90,-1)
+                    self.vel[0] = self.spd*cos(self.rad)
+                    self.vel[1] = self.spd*sin(self.rad)
+                else:
+                    self.rad = rad_from_center_diff(myrect,paddlerect,-90)
+                    self.vel[0] = self.spd*cos(self.rad)
+                    self.vel[1] = self.spd*sin(self.rad)
 
             if self.x + self.size + self.vel[0] > WIDTH or self.x + self.vel[0] < 0:
-                self.vel[0]*=-1
+                self.vel[0] *= -1
             if self.y + self.vel[1] < 0 or self.y + self.vel[1] + self.size > HEIGHT:
-                self.vel[1]*=-1
-                
-            if self.y + self.vel[1] > HEIGHT:
-                self.alive = False
+                self.vel[1] *= -1
 
+            #if self.y + self.vel[1] > HEIGHT:
+            #    self.alive = False
+            
             self.x += self.vel[0]
             self.y += self.vel[1]
 
@@ -95,6 +102,7 @@ class BALL():
 
     def draw(self):
         WIN.blit(self.sprite,g.Rect(self.x,self.y,self.size,self.size))
+        drawtext(self.tempspd,20,"white",400,20)
 
 class PADDLE():
     width = 125
@@ -132,7 +140,7 @@ class BLOCK():
         self.goindown = 260
 
     def step(self,ball):
-        
+
         if self.goindown > 1:
             spd = self.goindown/25
             self.goindown -= spd
@@ -140,17 +148,18 @@ class BLOCK():
 
         myrect = g.Rect(self.x,self.y,self.width,self.height)
         ballrect = g.Rect(ball.x+ball.vel[0],ball.y+ball.vel[1],ball.size+ball.vel[0],ball.size+ball.vel[1])
+        oballrect = g.Rect(ball.x,ball.y,ball.size,ball.size)
 
         if myrect.colliderect(ballrect) and ball.killcooldown < 1:
-            cbottom = abs(myrect.bottom - ballrect.top)
-            ctop = abs(myrect.top - ballrect.bottom)
-            cright = abs(myrect.right - ballrect.left)
-            cleft = abs(myrect.left - ballrect.right)
+            cbot = myrect.bottom > ballrect.top
+            ctop = myrect.top < ballrect.bottom
+            #cright = myrect.right > ballrect.left
+            #cleft = myrect.left < ballrect.right
 
-            cy = min(ctop,cbottom)
-            cx = min(cleft,cright)
+            ocbot = myrect.bottom > oballrect.top 
+            octop = myrect.top < oballrect.bottom
 
-            if cy < cx:
+            if (cbot and not ocbot) or (ctop and not octop):
                 ball.vel[1]*=-1
             else:
                 ball.vel[0]*=-1
@@ -185,9 +194,10 @@ class LOGIC():
                 if self.blocks[i][j].alive:
                     respawnblocks = False
                     self.blocks[i][j].step(self.ball)
-
+                    
         if respawnblocks:
-            BALL.spd += 1
+            if BALL.spd < 10:
+                BALL.spd += 0.5
             self.blockspawner(self.blocks,self.br,self.bc,5)
 
         self.paddle.step()
