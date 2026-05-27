@@ -330,7 +330,7 @@ class LOGIC():
     br = 4
     bc = 7
     score = 0
-    powerup = [0,1200,0,0] #stronger, homing, big paddle, shoot
+    powerup = [0,0,0,0] #stronger, homing, big paddle, shoot
 
     def blockspawner(self,blocklist,br,bc,spacing,pnum):
         offset = (WIDTH-((BLOCK.width+spacing)*bc))/2
