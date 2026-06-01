@@ -2,7 +2,7 @@ import pygame as g
 import random as r
 from sys import exit
 from os import path, chdir
-from math import sin,cos,pi,sqrt,acos,asin,floor
+from math import sin,cos,pi,sqrt,acos,asin,floor,tan,atan,atan2
 
 chdir(path.dirname(path.realpath(__file__)))
 g.init()
@@ -19,19 +19,11 @@ blocksprites = [
     g.image.load('sprites/purpleblock.png')
 ]
 
-blockcolor = ["green","red","cyan","yellow","purple"]
-
-powerupsprites = [
-    g.image.load('sprites/redblock.png'),
-    g.image.load('sprites/purpleblock.png'),
-    g.image.load('sprites/greenblock.png'),
-    g.image.load('sprites/cyanblock.png')
-]
+blockcolor = [(145,215,165),(190,40,60),(150, 255, 245),(245, 215, 100),(228, 133, 255)]
 
 hazardsprites = [
     g.image.load('sprites/goldblock.png'),
     g.image.load('sprites/ball.png'),
-    g.image.load('sprites/redblock.png')
 ]
 
 def colorblend(image, color):
@@ -67,6 +59,7 @@ class BALL():
     size = 30
     start = False
     sprite = g.transform.scale(g.image.load('sprites/ball.png').convert_alpha(), (size,size))
+    strongaurasprite = g.image.load('sprites/strongaura.png').convert_alpha()
     killcooldown = 0
     
     def __init__(self,x,y):
@@ -126,15 +119,15 @@ class BALL():
 
             if self.x + self.size + self.vel[0] > WIDTH or self.x + self.vel[0] < 0:
                 self.vel[0] *= -1
-            if self.y + self.vel[1] < 0 or self.y + self.vel[1] + self.size > HEIGHT:
+            if self.y + self.vel[1] < 0: #or self.y + self.vel[1] + self.size > HEIGHT:
                 self.vel[1] *= -1
                 if self.strong:
                     self.strong = False
                     self.vel[0]/=1.3
                     self.vel[1]/=1.3
 
-            #if self.y + self.vel[1] > HEIGHT:
-            #    self.alive = False
+            if self.y + self.vel[1] > HEIGHT:
+                LOGIC.balls.pop(LOGIC.balls.index(self))
             
             self.x += self.vel[0]
             self.y += self.vel[1]
@@ -143,7 +136,8 @@ class BALL():
 
     def draw(self):
         if self.strong:
-            g.draw.rect(WIN,(255,255,255),g.Rect(self.x-self.size/2,self.y-self.size/2,self.size*2,self.size*2))
+            aurasprite = g.transform.rotate(self.strongaurasprite,(atan2(-self.vel[1],self.vel[0])*180)/pi)
+            WIN.blit(aurasprite,aurasprite.get_rect(center = (self.x+self.size/2,self.y+self.size/2)))
         WIN.blit(self.sprite,g.Rect(self.x,self.y,self.size,self.size))
 
 class PADDLE():
@@ -212,6 +206,8 @@ class PADDLE():
             self.target = None
 
         keys = g.key.get_pressed()
+        if keys[g.K_0]:
+            LOGIC.balls.append(BALL(self.x+self.width/2,HEIGHT*.85))
         if (keys[g.K_LEFT] or keys[g.K_a]):
             if self.inverted:
                 if self.width + self.x + self.spd < WIDTH:
@@ -243,11 +239,14 @@ class BLOCK():
         self.sprite = g.transform.scale(blocksprites[i].convert_alpha(), (self.width,self.height))
         self.ghostsprite = g.transform.scale(g.image.load('sprites/ghost.png').convert_alpha(), (self.width,self.height))
         self.powerupsprite = g.transform.scale(colorblend(g.image.load('sprites/powerup.png').convert_alpha(), blockcolor[i]), (self.width,self.height))
+        self.skullsprite = g.transform.scale(colorblend(g.image.load('sprites/skull.png').convert_alpha(), blockcolor[i]), (self.width,self.height))
+        self.ballsprite = g.transform.scale(colorblend(g.image.load('sprites/ballblock.png').convert_alpha(), blockcolor[i]), (self.width,self.height))
+        self.explosivesprite = g.transform.scale(colorblend(g.image.load('sprites/explosive.png').convert_alpha(), blockcolor[i]), (self.width,self.height))
         self.x = xx
         self.y = yy
         self.worth = 125
         if specialty > -1:
-            if specialty < len(LOGIC.powerup):    
+            if specialty < 1:    
                 self.worth*=2
             else:
                 self.worth*=3
@@ -257,23 +256,21 @@ class BLOCK():
         self.specialty = specialty
         self.ghost = False
         self.collidecooldown = 0
-        if self.specialty == len(LOGIC.powerup) + 4:
+        if self.specialty == 5:
             self.ghost = True
 
     def death(self,myrect,ball = None):
-        plen = len(LOGIC.powerup)
         BALL.killcooldown = 2
         LOGIC.score += self.worth
         if self.specialty > -1:
-            if self.specialty < plen:
-                LOGIC.powerups.append(POWERUP(myrect.centerx,myrect.centery,self.specialty))
-            elif not self.specialty == plen + len(LOGIC.hazard) + 2:
-                if self.specialty == plen:
-                    LOGIC.balls.append(BALL(myrect.centerx,myrect.centery))
-                elif self.specialty == plen + len(LOGIC.hazard) + 1:
-                    LOGIC.hazards.append(EXPLOSION(myrect.centerx-(BLOCK.width*3*.9)/2,myrect.centery+BLOCK.height*.05))
-                else:
-                    LOGIC.hazards.append(HAZARD(myrect.centerx,myrect.centery,self.specialty-plen-1))
+            if self.specialty == 0:
+                LOGIC.powerups.append(POWERUP(myrect.centerx,myrect.centery))
+            if self.specialty == 1:
+                LOGIC.balls.append(BALL(myrect.centerx,myrect.centery))
+            elif self.specialty == 4:
+                LOGIC.hazards.append(EXPLOSION(myrect.centerx-(BLOCK.width*3*.9)/2,myrect.centery+BLOCK.height*.05))
+            elif self.specialty == 2 or self.specialty == 3:
+                LOGIC.hazards.append(HAZARD(myrect.centerx,myrect.centery,self.specialty-2))
         if not ball == None and ball.strong:
             ball.strong = False
             ball.vel[0]/=1.3
@@ -320,12 +317,17 @@ class BLOCK():
             g.draw.rect(WIN,(255,255,255),g.Rect(self.x-2,self.y-2,self.width+4,self.height+4))
             self.targetted = False
 
-        if self.specialty >= len(LOGIC.powerup) and not self.specialty == len(LOGIC.powerup) + len(LOGIC.hazard) + 2:
-            g.draw.rect(WIN,(255,0,0),g.Rect(self.x,self.y,self.width,self.height))
-        else:
-            WIN.blit(self.sprite,g.Rect(self.x,self.y,self.width,self.height))
-            if self.specialty > -1 and not self.specialty == len(LOGIC.powerup) + len(LOGIC.hazard) + 2:
+        WIN.blit(self.sprite,g.Rect(self.x,self.y,self.width,self.height))
+        if self.specialty > -1:
+            if self.specialty == 0:
                 WIN.blit(self.powerupsprite,g.Rect(self.x,self.y,self.width,self.height))
+            if self.specialty >= 1 and not self.specialty == 5:
+                if self.specialty == 1:
+                    WIN.blit(self.ballsprite,g.Rect(self.x,self.y,self.width,self.height))
+                elif self.specialty == 4:
+                    WIN.blit(self.explosivesprite,g.Rect(self.x,self.y,self.width,self.height))
+                else:
+                    WIN.blit(self.skullsprite,g.Rect(self.x,self.y,self.width,self.height))
         if self.ghost:
             WIN.blit(self.ghostsprite,g.Rect(self.x,self.y,self.width,self.height))
         
@@ -363,16 +365,23 @@ class POWERUP():
 
     size = 30
 
-    def __init__(self,x,y,type):
+    def __init__(self,x,y):
         self.x = x
         self.y = y
-        self.type = type
-        self.sprite = g.transform.scale(powerupsprites[type].convert_alpha(), (self.size,self.size))
+        self.sprite = g.transform.scale(g.image.load('sprites/greenblock.png').convert_alpha(), (self.size,self.size))
     
     def step(self):
         self.y+=3
         if g.Rect(self.x,self.y,self.size,self.size).colliderect(g.Rect(LOGIC.paddle.x,LOGIC.paddle.y,LOGIC.paddle.width,LOGIC.paddle.height)):
-            LOGIC.powerup[self.type] += 1200
+            type = [0,1,2,3]
+            for i in type:
+                if LOGIC.powerup[i] > 0:
+                    type.pop(type.index(i))
+            if len(type) > 0:
+                type = type[r.randint(0,len(type)-1)]
+            else:
+                type = r.randint(0,len(LOGIC.powerup)-1)
+            LOGIC.powerup[type] += 1200
             LOGIC.powerups.pop(LOGIC.powerups.index(self))
         if self.y > HEIGHT:
             LOGIC.powerups.pop(LOGIC.powerups.index(self))
@@ -413,7 +422,7 @@ class EXPLOSION():
         self.x = x
         self.y = y
         self.timer = 30
-        self.sprite = g.transform.scale(hazardsprites[2].convert_alpha(), (self.width,self.height))
+        self.sprite = g.transform.scale(g.image.load('sprites/redblock.png').convert_alpha(), (self.width,self.height))
 
     def step(self):
         if self.timer == 30:
@@ -438,6 +447,7 @@ class LOGIC():
     hazards = []
     paddle = PADDLE()
     balls = [BALL(0,HEIGHT*.85)]
+    extralives = 2
     br = 4
     bc = 7
     score = 0
@@ -447,20 +457,19 @@ class LOGIC():
     def blockspawner(self,blocklist,br,bc,spacing,pnum):
         offset = (WIDTH-((BLOCK.width+spacing)*bc))/2
 
-        powerups = r.sample(range(0,len(self.powerup)), pnum)
         specialtydistribution = []
 
         for _ in range(bc): specialtydistribution.append(list(-1 for _ in range(br)))
 
         rows = r.sample(range(0,br),pnum)
         for i in range(pnum):
-            specialtydistribution[0][rows[i]] = powerups[i]
+            specialtydistribution[0][rows[i]] = 0
 
         ballnum = r.randint(1,2)
-        hazards = r.randint(5,6+BALL.spd-6)
-        hazards = [len(self.powerup) + r.randint(1,4) for _ in range(hazards-ballnum)]
-        # 0 - 3 powerups 4 ball 5 - 8 hazards
-        for _ in range(ballnum): hazards.append(len(self.powerup))
+        hazards = r.randint(5,6+floor(BALL.spd)-6)
+        hazards = [r.randint(2,5) for _ in range(hazards-ballnum)]
+        # 0 powerups 1 ball 2 slow 3 confuse 4 explosion 5 ghost
+        for _ in range(ballnum): hazards.append(1)
 
         cl = 1; rw = 0
         for i in hazards:
@@ -497,13 +506,20 @@ class LOGIC():
                     self.blocks[i][j].step(self.balls)
                     
         if respawnblocks:
-            if BALL.spd < 11:
-                BALL.spd += 1
+            if BALL.spd < 10:
+                BALL.spd += .5
             self.blockspawner(self.blocks,self.br,self.bc,5,2)
 
         for i in self.bullets: i.step()
         self.paddle.step()
         for i in self.balls: i.step(self.paddle)
+
+        if len(self.balls) == 0:
+            self.extralives -= 1
+            if self.extralives < 0: exit()
+            BALL.start = False
+            self.balls.append(BALL(-100,HEIGHT*.85))
+
         for i in self.hazards: i.step()
         for i in self.powerups:i.step()
 
@@ -524,6 +540,7 @@ class LOGIC():
             drawtext(self.hazard[i],25,"white",25,50+i*25)
         for i in range(len(self.powerup)):
             drawtext(self.powerup[i],25,"white",25,150+i*25)
+        drawtext(self.extralives,25,"white",WIDTH-50,25)
         #drawtext(,25,"white",200,20)
         g.display.update()
 
