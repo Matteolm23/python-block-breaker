@@ -11,6 +11,8 @@ WIDTH, HEIGHT = 720,720
 WIN = g.display.set_mode((WIDTH,HEIGHT))
 screen_rect = WIN.get_rect()
 
+clock = g.time.Clock()
+
 blocksprites = [
     g.image.load('sprites/greenblock.png'),
     g.image.load('sprites/redblock.png'),
@@ -48,10 +50,14 @@ def rad_from_center_diff(rect1,rect2,incr,mult = 1,anglemax = 70):
             angle = 10
     return degtorad(angle+incr)
 
-def drawtext(text,size,color,x,y):
+def drawtext(text,size,color,x,y,align = "left"):
     font = g.font.Font('HERCULESPIXELFONTREGULAR-OVAX0.OTF', size)
     rtext = font.render(str(text),True,color)
     textrect = rtext.get_rect(topleft = (x,y))
+    if align == "right":
+        textrect = rtext.get_rect(topright = (x,y))
+    elif align == "center":
+        textrect = rtext.get_rect(center = (x,y))
     WIN.blit(rtext, textrect)
 
 class BALL():
@@ -440,7 +446,8 @@ class EXPLOSION():
     def draw(self):
          WIN.blit(self.sprite,g.Rect(self.x,self.y,self.width,self.height))
 
-class LOGIC():  
+class LOGIC(): 
+    blink = 0
     blocks = []
     powerups = []
     bullets = []
@@ -450,6 +457,7 @@ class LOGIC():
     extralives = 2
     br = 4
     bc = 7
+    paused = False
     score = 0
     hazard = [0,0] #slower, confused
     powerup = [0,0,0,0] #stronger, homing, big paddle, shoot
@@ -492,38 +500,41 @@ class LOGIC():
 
     def step(self):
 
-        for i in range(len(self.powerup)): 
-            if self.powerup[i] > 0: self.powerup[i]-=1
-        for i in range(len(self.hazard)):
-            if self.hazard[i] > 0: self.hazard[i]-=1
+        if not self.paused:
+            for i in range(len(self.powerup)): 
+                if self.powerup[i] > 0: self.powerup[i]-=1
+            for i in range(len(self.hazard)):
+                if self.hazard[i] > 0: self.hazard[i]-=1
 
-        respawnblocks = True
+            respawnblocks = True
 
-        for i in range(self.bc):
-            for j in range(self.br):
-                if self.blocks[i][j].alive:
-                    respawnblocks = False
-                    self.blocks[i][j].step(self.balls)
-                    
-        if respawnblocks:
-            if BALL.spd < 10:
-                BALL.spd += .5
-            self.blockspawner(self.blocks,self.br,self.bc,5,2)
+            for i in range(self.bc):
+                for j in range(self.br):
+                    if self.blocks[i][j].alive:
+                        respawnblocks = False
+                        self.blocks[i][j].step(self.balls)
+                        
+            if respawnblocks:
+                if BALL.spd < 10:
+                    BALL.spd += .5
+                self.blockspawner(self.blocks,self.br,self.bc,5,2)
 
-        for i in self.bullets: i.step()
-        self.paddle.step()
-        for i in self.balls: i.step(self.paddle)
+            for i in self.bullets: i.step()
+            self.paddle.step()
+            for i in self.balls: i.step(self.paddle)
 
-        if len(self.balls) == 0:
-            self.extralives -= 1
-            if self.extralives < 0: exit()
-            BALL.start = False
-            self.balls.append(BALL(-100,HEIGHT*.85))
+            if len(self.balls) == 0:
+                self.extralives -= 1
+                if self.extralives < 0: exit()
+                BALL.start = False
+                self.balls.append(BALL(-100,HEIGHT*.85))
 
-        for i in self.hazards: i.step()
-        for i in self.powerups:i.step()
+            for i in self.hazards: i.step()
+            for i in self.powerups:i.step()
 
     def draw(self):
+        self.blink = self.blink+1 if self.blink < 50 else 0
+
         WIN.fill((15,0,25))
         for i in range(self.bc):
             for j in range(self.br):
@@ -536,22 +547,28 @@ class LOGIC():
         for i in self.hazards: i.draw()
 
         drawtext(self.score,25,"white",25,25)
+
         for i in range(len(self.hazard)):
             drawtext(self.hazard[i],25,"white",25,50+i*25)
         for i in range(len(self.powerup)):
             drawtext(self.powerup[i],25,"white",25,150+i*25)
         drawtext(self.extralives,25,"white",WIDTH-50,25)
-        #drawtext(,25,"white",200,20)
+        
+        if self.paused and self.blink % 50 > 25:
+            drawtext("PAUSED",50,"white",WIDTH/2,HEIGHT/2,"center")
+
         g.display.update()
 
-clock = g.time.Clock()
 game = LOGIC()
 
 while(1):
 
     for event in g.event.get():
         if event.type == g.QUIT:
-            exit()  
+            exit()
+        if event.type == g.KEYUP:
+            if event.key == g.K_ESCAPE:
+                LOGIC.paused = not LOGIC.paused
 
     game.step()
     game.draw()
