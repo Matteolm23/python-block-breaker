@@ -2,7 +2,8 @@ import pygame as g
 import random as r
 from sys import exit
 from os import path, chdir
-from math import sin,cos,pi,sqrt,acos,asin,floor,tan,atan,atan2
+from math import sin,cos,pi,sqrt,acos,asin,floor,atan2
+from numpy import interp
 
 chdir(path.dirname(path.realpath(__file__)))
 g.init()
@@ -13,15 +14,18 @@ screen_rect = WIN.get_rect()
 
 clock = g.time.Clock()
 
+blockw = 75
+blockh = 40
+
 blocksprites = [
-    g.image.load('sprites/greenblock.png'),
-    g.image.load('sprites/redblock.png'),
-    g.image.load('sprites/cyanblock.png'),
-    g.image.load('sprites/goldblock.png'),
-    g.image.load('sprites/purpleblock.png')
+    g.transform.scale(g.image.load('sprites/greenblock.png').convert_alpha(), (blockw,blockh)),
+    g.transform.scale(g.image.load('sprites/redblock.png').convert_alpha(), (blockw,blockh)),
+    g.transform.scale(g.image.load('sprites/cyanblock.png').convert_alpha(), (blockw,blockh)),
+    g.transform.scale(g.image.load('sprites/goldblock.png').convert_alpha(), (blockw,blockh)),
+    g.transform.scale(g.image.load('sprites/purpleblock.png').convert_alpha(), (blockw,blockh)),
 ]
 
-blockcolor = [(145,215,165),(190,40,60),(150, 255, 245),(245, 215, 100),(228, 133, 255)]
+ghostblocksprite = g.transform.scale(g.image.load('sprites/ghost.png').convert_alpha(), (blockw,blockh))
 
 hazardsprites = [
     g.image.load('sprites/goldblock.png'),
@@ -34,6 +38,14 @@ def colorblend(image, color):
     finalImage = image.copy()
     finalImage.blit(colouredImage, (0, 0), special_flags = g.BLEND_MULT)
     return finalImage
+
+blockcolor = [(145,215,165),(190,40,60),(150, 255, 245),(245, 215, 100),(228, 133, 255)]
+powerupblocksprites = [g.transform.scale(colorblend(g.image.load('sprites/powerup.png').convert_alpha(), blockcolor[i]), (blockw,blockh)) for i in range(len(blockcolor))]
+skullsprites = [g.transform.scale(colorblend(g.image.load('sprites/skull.png').convert_alpha(), blockcolor[i]), (blockw,blockh)) for i in range(len(blockcolor))]
+ballblocksprites = [g.transform.scale(colorblend(g.image.load('sprites/ballblock.png').convert_alpha(), blockcolor[i]), (blockw,blockh)) for i in range(len(blockcolor))]
+explosiveblocksprites = [g.transform.scale(colorblend(g.image.load('sprites/explosive.png').convert_alpha(), blockcolor[i]), (blockw,blockh)) for i in range(len(blockcolor))]
+heartblocksprites = [g.transform.scale(colorblend(g.image.load('sprites/heart.png').convert_alpha(), blockcolor[i]), (blockw,blockh)) for i in range(len(blockcolor))]
+
 
 def degtorad(angle):
     return angle * (pi/180)
@@ -67,7 +79,7 @@ class BALL():
     sprite = g.transform.scale(g.image.load('sprites/ball.png').convert_alpha(), (size,size))
     strongaurasprite = g.image.load('sprites/strongaura.png').convert_alpha()
     killcooldown = 0
-    
+
     def __init__(self,x,y):
         self.rad = 2.5
         self.alive = True
@@ -125,7 +137,7 @@ class BALL():
 
             if self.x + self.size + self.vel[0] > WIDTH or self.x + self.vel[0] < 0:
                 self.vel[0] *= -1
-            if self.y + self.vel[1] < 0: #or self.y + self.vel[1] + self.size > HEIGHT:
+            if self.y + self.vel[1] < 0 or self.y + self.vel[1] + self.size > HEIGHT:
                 self.vel[1] *= -1
                 if self.strong:
                     self.strong = False
@@ -137,6 +149,9 @@ class BALL():
             
             self.x += self.vel[0]
             self.y += self.vel[1]
+
+            if self.y < 0:
+                self.y -= self.size/2
 
             myrect.clamp_ip(screen_rect)
 
@@ -237,17 +252,18 @@ class PADDLE():
         #WIN.blit(self.sprite,g.Rect(self.x,self.y,self.width,self.height))
 
 class BLOCK():
-    width = 75
-    height = 40
+    width = blockw
+    height = blockh
 
     def __init__(self,xx,yy,specialty):
         i = r.randint(0,4)
-        self.sprite = g.transform.scale(blocksprites[i].convert_alpha(), (self.width,self.height))
-        self.ghostsprite = g.transform.scale(g.image.load('sprites/ghost.png').convert_alpha(), (self.width,self.height))
-        self.powerupsprite = g.transform.scale(colorblend(g.image.load('sprites/powerup.png').convert_alpha(), blockcolor[i]), (self.width,self.height))
-        self.skullsprite = g.transform.scale(colorblend(g.image.load('sprites/skull.png').convert_alpha(), blockcolor[i]), (self.width,self.height))
-        self.ballsprite = g.transform.scale(colorblend(g.image.load('sprites/ballblock.png').convert_alpha(), blockcolor[i]), (self.width,self.height))
-        self.explosivesprite = g.transform.scale(colorblend(g.image.load('sprites/explosive.png').convert_alpha(), blockcolor[i]), (self.width,self.height))
+        self.sprite = blocksprites[i]
+        self.powerupsprite = powerupblocksprites[i]
+        self.skullsprite = skullsprites[i]
+        self.ballsprite = ballblocksprites[i]
+        self.explosivesprite = explosiveblocksprites[i]
+        self.heartsprite = heartblocksprites[i]
+        
         self.x = xx
         self.y = yy
         self.worth = 125
@@ -277,10 +293,13 @@ class BLOCK():
                 LOGIC.hazards.append(EXPLOSION(myrect.centerx-(BLOCK.width*3*.9)/2,myrect.centery+BLOCK.height*.05))
             elif self.specialty == 2 or self.specialty == 3:
                 LOGIC.hazards.append(HAZARD(myrect.centerx,myrect.centery,self.specialty-2))
-        if not ball == None and ball.strong:
-            ball.strong = False
-            ball.vel[0]/=1.3
-            ball.vel[1]/=1.3
+            elif self.specialty == 6:
+                LOGIC.lifehearts.append(LIFEHEART(myrect.centerx,myrect.centery))
+        if not ball == None:
+            if ball.strong:
+                ball.strong = False
+                ball.vel[0]/=1.3
+                ball.vel[1]/=1.3
         self.alive = False
 
     def step(self,balls):
@@ -300,7 +319,7 @@ class BLOCK():
             ballrect = g.Rect(i.x+i.vel[0],i.y+i.vel[1],i.size+i.vel[0],i.size+i.vel[1])
             oballrect = g.Rect(i.x,i.y,i.size,i.size)
 
-            if myrect.colliderect(ballrect) and i.killcooldown < 1 and self.collidecooldown <= 0:
+            if myrect.colliderect(ballrect) and BALL.killcooldown < 1 and self.collidecooldown <= 0:
                 if not i.strong and not self.ghost:
                     cbot = myrect.bottom > ballrect.top
                     ctop = myrect.top < ballrect.bottom
@@ -332,10 +351,12 @@ class BLOCK():
                     WIN.blit(self.ballsprite,g.Rect(self.x,self.y,self.width,self.height))
                 elif self.specialty == 4:
                     WIN.blit(self.explosivesprite,g.Rect(self.x,self.y,self.width,self.height))
+                elif self.specialty == 6:
+                    WIN.blit(self.heartsprite,g.Rect(self.x,self.y,self.width,self.height))
                 else:
                     WIN.blit(self.skullsprite,g.Rect(self.x,self.y,self.width,self.height))
         if self.ghost:
-            WIN.blit(self.ghostsprite,g.Rect(self.x,self.y,self.width,self.height))
+            WIN.blit(ghostblocksprite,g.Rect(self.x,self.y,self.width,self.height))
         
 class BULLET():
 
@@ -444,7 +465,79 @@ class EXPLOSION():
             LOGIC.hazards.pop(LOGIC.hazards.index(self))
 
     def draw(self):
-         WIN.blit(self.sprite,g.Rect(self.x,self.y,self.width,self.height))
+        WIN.blit(self.sprite,g.Rect(self.x,self.y,self.width,self.height))
+
+class LIFEHEART():
+
+    r = 150
+    size = 30   
+    sprite = g.transform.scale(g.image.load('sprites/purpleblock.png').convert_alpha(), (size,size))
+
+    def __init__(self,x,y,collidecooldown = 0,angle = 3.2,bounces = 0,xmult = 1,ymult = 1,bspdmult = -1):
+        self.bouncespd = 0.025*bspdmult
+        self.c = angle
+        self.xmult = xmult
+        self.ymult = ymult
+        self.cx = x+self.r*xmult
+        self.cy = y
+        self.x = self.cx + self.r * cos(self.c) * xmult
+        self.y = self.cy + self.r * sin(self.c) * ymult
+        self.bouncing = True
+        self.bounces = bounces
+        self.cc = collidecooldown
+
+    def death(self,addlife = False):
+        if addlife:
+            LOGIC.extralives += 1
+        if self in LOGIC.lifehearts:
+            LOGIC.lifehearts.pop(LOGIC.lifehearts.index(self))
+
+    def step(self):
+        if self.cc > 0: self.cc -= 1
+
+        if self.bouncing:
+            self.c += self.bouncespd
+        else:
+            self.cy += 3
+
+        self.x = self.cx + self.r * cos(self.c) * self.xmult
+        self.y = self.cy + self.r * sin(self.c) * self.ymult
+
+        if self.y >= self.cy:
+            self.bouncing = False
+        
+        myrect = g.Rect(self.x,self.y,self.size,self.size)
+        paddlerect = g.Rect(LOGIC.paddle.x,LOGIC.paddle.y,LOGIC.paddle.width,LOGIC.paddle.height)
+
+        if self.x + self.size > WIDTH or self.x < 0:
+            self.bouncespd*=-1
+
+        if myrect.colliderect(paddlerect):
+            if self.cc == 0:
+                self.cc = 30
+                self.bounces += 1
+            if r.random() > .8:
+                self.bouncespd*=-1
+                self.bouncing = True
+            else:
+                self.death()
+                diff = myrect.centerx - paddlerect.centerx
+                self.xmult = interp(abs(diff),[0,PADDLE.width/2],[0.7,1.5])
+                self.ymult = 0.7+1.5-self.xmult
+                if self.bounces < 4:
+                    if self.x > self.cx:
+                        LOGIC.lifehearts.append(LIFEHEART(self.x,self.y,self.cc,3.2,self.bounces,self.xmult,self.ymult,1))
+                    else:
+                        LOGIC.lifehearts.append(LIFEHEART(self.x-(self.r*(2*self.xmult)),self.y,self.cc,6.2,self.bounces,self.xmult,self.ymult,-1))
+        
+        if self.bounces == 4:
+            self.death(True)
+
+        if self.y > HEIGHT or self.cy > HEIGHT:
+            LOGIC.lifehearts.pop(LOGIC.lifehearts.index(self))
+
+    def draw(self):
+        WIN.blit(self.sprite,g.Rect(self.x,self.y,self.size,self.size))
 
 class LOGIC(): 
     blink = 0
@@ -452,6 +545,7 @@ class LOGIC():
     powerups = []
     bullets = []
     hazards = []
+    lifehearts = []
     paddle = PADDLE()
     balls = [BALL(0,HEIGHT*.85)]
     extralives = 2
@@ -474,10 +568,12 @@ class LOGIC():
             specialtydistribution[0][rows[i]] = 0
 
         ballnum = r.randint(1,2)
+        lifeheart = 1 if LOGIC.extralives < 3 else 0
         hazards = r.randint(5,6+floor(BALL.spd)-6)
-        hazards = [r.randint(2,5) for _ in range(hazards-ballnum)]
-        # 0 powerups 1 ball 2 slow 3 confuse 4 explosion 5 ghost
+        hazards = [r.randint(2,5) for _ in range(hazards-ballnum-lifeheart)]
+        # 0 powerups 1 ball 2 slow 3 confuse 4 explosion 5 ghost 6 lifeheart
         for _ in range(ballnum): hazards.append(1)
+        if lifeheart: hazards.append(6)
 
         cl = 1; rw = 0
         for i in hazards:
@@ -522,15 +618,21 @@ class LOGIC():
             for i in self.bullets: i.step()
             self.paddle.step()
             for i in self.balls: i.step(self.paddle)
+            for i in self.hazards:i.step()
+            for i in self.powerups:i.step()
+            for i in self.lifehearts:i.step()
 
             if len(self.balls) == 0:
-                self.extralives -= 1
-                if self.extralives < 0: exit()
+                LOGIC.extralives -= 1
+                LOGIC.powerups.clear()
+                LOGIC.hazards.clear()
+                LOGIC.lifehearts.clear()
+                LOGIC.bullets.clear()
+                LOGIC.powerup = [0,0,0,0]
+                LOGIC.hazard = [0,0]
+                if LOGIC.extralives < 0: exit()
                 BALL.start = False
                 self.balls.append(BALL(-100,HEIGHT*.85))
-
-            for i in self.hazards: i.step()
-            for i in self.powerups:i.step()
 
     def draw(self):
         self.blink = self.blink+1 if self.blink < 50 else 0
@@ -542,9 +644,10 @@ class LOGIC():
                     self.blocks[i][j].draw()
         for i in self.bullets: i.draw()
         self.paddle.draw()
-        for i in self.balls: i.draw()
-        for i in self.powerups: i.draw()
-        for i in self.hazards: i.draw()
+        for i in self.balls:i.draw()
+        for i in self.powerups:i.draw()
+        for i in self.hazards:i.draw()
+        for i in self.lifehearts:i.draw()
 
         drawtext(self.score,25,"white",25,25)
 
