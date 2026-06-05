@@ -87,17 +87,23 @@ class BALL():
         self.x = x
         self.y = y
         self.strong = False
+        self.beforestartsize = 30
+        if not BALL.start:
+            self.beforestartsize = 0
 
     def step(self,paddle):
 
         if LOGIC.balls.index(self) == 0:
             BALL.killcooldown -= 1
 
+        if self.beforestartsize < 30:
+            self.beforestartsize += 1
+
         if not BALL.start:
             self.x = paddle.x + paddle.width/2 - self.size/2
 
             keys = g.key.get_pressed()
-            if keys[g.K_UP] or keys[g.K_w]:
+            if (keys[g.K_UP] or keys[g.K_w]) and self.beforestartsize >= 30:
                 angle = 45
                 if keys[g.K_a] or keys[g.K_LEFT]:
                     angle *= -1
@@ -137,7 +143,7 @@ class BALL():
 
             if self.x + self.size + self.vel[0] > WIDTH or self.x + self.vel[0] < 0:
                 self.vel[0] *= -1
-            if self.y + self.vel[1] < 0 or self.y + self.vel[1] + self.size > HEIGHT:
+            if self.y + self.vel[1] < 0: # or self.y + self.vel[1] + self.size > HEIGHT:
                 self.vel[1] *= -1
                 if self.strong:
                     self.strong = False
@@ -159,13 +165,17 @@ class BALL():
         if self.strong:
             aurasprite = g.transform.rotate(self.strongaurasprite,(atan2(-self.vel[1],self.vel[0])*180)/pi)
             WIN.blit(aurasprite,aurasprite.get_rect(center = (self.x+self.size/2,self.y+self.size/2)))
-        WIN.blit(self.sprite,g.Rect(self.x,self.y,self.size,self.size))
+        if self.beforestartsize >= 30:
+            WIN.blit(self.sprite,g.Rect(self.x,self.y,self.size,self.size))
+        else:
+            WIN.blit(g.transform.scale(self.sprite,(self.beforestartsize,self.beforestartsize)),g.Rect(self.x+self.size/2-self.beforestartsize/2,self.y+self.size/2-self.beforestartsize/2,self.beforestartsize,self.beforestartsize))
 
 class PADDLE():
     width = 130
     height = 15
-    spd = 8
+    spd = 10
     inverted = False
+    #sprite = g.transform.scale(g.image.load('sprites/paddle.png').convert_alpha(), (width,height))
 
     def __init__(self):
         self.x = WIDTH/2 - self.width/2
@@ -194,9 +204,9 @@ class PADDLE():
             self.inverted = False
 
         if LOGIC.hazard[0] > 0:
-            self.spd = 4
+            self.spd = 5
         else:
-            self.spd = 8
+            self.spd = 10
 
         if  LOGIC.powerup[1] > 0:
             targetrow = 3
@@ -217,7 +227,7 @@ class PADDLE():
                     if targetrow < 0:
                         targetrow = 3
                         targetcol = 0
-                        exit
+                        break
                 else:
                     targetcol = targetcol.index(min(targetcol))
 
@@ -228,7 +238,7 @@ class PADDLE():
 
         keys = g.key.get_pressed()
         if keys[g.K_0]:
-            LOGIC.balls.append(BALL(self.x+self.width/2,HEIGHT*.85))
+            LOGIC.powerups.append(POWERUP(self.x,self.y))
         if (keys[g.K_LEFT] or keys[g.K_a]):
             if self.inverted:
                 if self.width + self.x + self.spd < WIDTH:
@@ -263,6 +273,9 @@ class BLOCK():
         self.ballsprite = ballblocksprites[i]
         self.explosivesprite = explosiveblocksprites[i]
         self.heartsprite = heartblocksprites[i]
+        self.explodingsprite = g.Surface((self.width,self.height))
+        self.explodingsprite.set_alpha(100)
+        self.explodingsprite.fill((255,255,255))
         
         self.x = xx
         self.y = yy
@@ -276,12 +289,13 @@ class BLOCK():
         self.goindown = 260
         self.targetted = False
         self.specialty = specialty
-        self.ghost = False
+        self.ghost = -1
         self.collidecooldown = 0
         if self.specialty == 5:
-            self.ghost = True
+            self.ghost = 255
+        self.exploding = -1
 
-    def death(self,myrect,ball = None):
+    def death(self,myrect,death = None):
         BALL.killcooldown = 2
         LOGIC.score += self.worth
         if self.specialty > -1:
@@ -289,20 +303,35 @@ class BLOCK():
                 LOGIC.powerups.append(POWERUP(myrect.centerx,myrect.centery))
             if self.specialty == 1:
                 LOGIC.balls.append(BALL(myrect.centerx,myrect.centery))
-            elif self.specialty == 4:
-                LOGIC.hazards.append(EXPLOSION(myrect.centerx-(BLOCK.width*3*.9)/2,myrect.centery+BLOCK.height*.05))
+            elif self.specialty == 4 and self.exploding == -1:
+                if death == -1:
+                    self.alive = False
+                    LOGIC.hazards.append(EXPLOSION(myrect.centerx-(BLOCK.width*3*.9)/2,myrect.centery+BLOCK.height*.05))
+                else:
+                    self.exploding = 120
             elif self.specialty == 2 or self.specialty == 3:
                 LOGIC.hazards.append(HAZARD(myrect.centerx,myrect.centery,self.specialty-2))
             elif self.specialty == 6:
                 LOGIC.lifehearts.append(LIFEHEART(myrect.centerx,myrect.centery))
-        if not ball == None:
-            if ball.strong:
-                ball.strong = False
-                ball.vel[0]/=1.3
-                ball.vel[1]/=1.3
-        self.alive = False
+        if not death == None and not death == -1:
+            if death.strong:
+                death.strong = False
+                death.vel[0]/=1.3
+                death.vel[1]/=1.3
+        if not self.specialty == 4:
+            self.alive = False
 
     def step(self,balls):
+
+        myrect = g.Rect(self.x,self.y,self.width,self.height)
+        if self.ghost > 0 and self.ghost < 255:
+            self.ghost -= 8.5
+
+        if self.exploding > 0:
+            self.exploding -= 1
+            if self.exploding < 1:
+                self.alive = False
+                LOGIC.hazards.append(EXPLOSION(myrect.centerx-(BLOCK.width*3*.9)/2,myrect.centery+BLOCK.height*.05))
 
         if self.collidecooldown > 0:
             self.collidecooldown-=1
@@ -315,12 +344,11 @@ class BLOCK():
                 self.y = floor(self.y)
 
         for i in balls:
-            myrect = g.Rect(self.x,self.y,self.width,self.height)
             ballrect = g.Rect(i.x+i.vel[0],i.y+i.vel[1],i.size+i.vel[0],i.size+i.vel[1])
             oballrect = g.Rect(i.x,i.y,i.size,i.size)
 
             if myrect.colliderect(ballrect) and BALL.killcooldown < 1 and self.collidecooldown <= 0:
-                if not i.strong and not self.ghost:
+                if not i.strong and self.ghost == -1 or self.specialty == 4:
                     cbot = myrect.bottom > ballrect.top
                     ctop = myrect.top < ballrect.bottom
                     ocbot = myrect.bottom > oballrect.top 
@@ -331,36 +359,46 @@ class BLOCK():
                     else:
                         i.vel[0]*=-1
 
-                if not self.ghost:
+                if self.ghost == -1:
                     self.death(myrect,i)
                 else:
-                    self.ghost = False
+                    self.ghost -= 1
                     self.collidecooldown = 30
 
     def draw(self):
+        
+        myrect = g.Rect(self.x,self.y,self.width,self.height)
+
         if self.targetted:
             g.draw.rect(WIN,(255,255,255),g.Rect(self.x-2,self.y-2,self.width+4,self.height+4))
             self.targetted = False
 
-        WIN.blit(self.sprite,g.Rect(self.x,self.y,self.width,self.height))
+        WIN.blit(self.sprite,myrect)
+
         if self.specialty > -1:
             if self.specialty == 0:
-                WIN.blit(self.powerupsprite,g.Rect(self.x,self.y,self.width,self.height))
+                WIN.blit(self.powerupsprite,myrect)
             if self.specialty >= 1 and not self.specialty == 5:
                 if self.specialty == 1:
-                    WIN.blit(self.ballsprite,g.Rect(self.x,self.y,self.width,self.height))
+                    WIN.blit(self.ballsprite,myrect)
                 elif self.specialty == 4:
-                    WIN.blit(self.explosivesprite,g.Rect(self.x,self.y,self.width,self.height))
+                    WIN.blit(self.explosivesprite,myrect)
                 elif self.specialty == 6:
-                    WIN.blit(self.heartsprite,g.Rect(self.x,self.y,self.width,self.height))
+                    WIN.blit(self.heartsprite,myrect)
                 else:
-                    WIN.blit(self.skullsprite,g.Rect(self.x,self.y,self.width,self.height))
-        if self.ghost:
-            WIN.blit(ghostblocksprite,g.Rect(self.x,self.y,self.width,self.height))
-        
+                    WIN.blit(self.skullsprite,myrect)
+        if not self.ghost == -1:
+            ghostblocksprite.set_alpha(self.ghost)
+            WIN.blit(ghostblocksprite,myrect)
+
+        if self.exploding > 0:
+            if self.exploding % 30 > 15:
+                WIN.blit(self.explodingsprite,myrect)
+            
+
 class BULLET():
 
-    width = 5
+    width = 6
     height = 10
 
     def __init__(self,x,y):
@@ -376,7 +414,7 @@ class BULLET():
             for j in range(LOGIC.br):
                 if blocks[i][j].alive:
                     blockrect = g.Rect(blocks[i][j].x,blocks[i][j].y,blocks[i][j].width,blocks[i][j].height)
-                    if myrect.colliderect(blockrect) and not blocks[i][j].ghost:
+                    if myrect.colliderect(blockrect) and blocks[i][j].ghost == -1:
                         blocks[i][j].death(blockrect)
                         if self in LOGIC.bullets:
                             LOGIC.bullets.pop(LOGIC.bullets.index(self))
@@ -400,15 +438,15 @@ class POWERUP():
     def step(self):
         self.y+=3
         if g.Rect(self.x,self.y,self.size,self.size).colliderect(g.Rect(LOGIC.paddle.x,LOGIC.paddle.y,LOGIC.paddle.width,LOGIC.paddle.height)):
-            type = [0,1,2,3]
-            for i in type:
-                if LOGIC.powerup[i] > 0:
-                    type.pop(type.index(i))
-            if len(type) > 0:
-                type = type[r.randint(0,len(type)-1)]
-            else:
-                type = r.randint(0,len(LOGIC.powerup)-1)
-            LOGIC.powerup[type] += 1200
+            t = r.randint(0,len(LOGIC.powerup)-1)
+            while(1):
+                if LOGIC.powerup[t] == 0:
+                    break
+                t-=1
+                if t < -len(LOGIC.powerup):
+                    t = r.randint(0,len(LOGIC.powerup)-1)
+                    break
+            LOGIC.powerup[t] += 1200
             LOGIC.powerups.pop(LOGIC.powerups.index(self))
         if self.y > HEIGHT:
             LOGIC.powerups.pop(LOGIC.powerups.index(self))
@@ -458,8 +496,8 @@ class EXPLOSION():
             for i in range(LOGIC.bc):
                 for j in range(LOGIC.br):
                     blockrect = g.Rect(blocks[i][j].x,blocks[i][j].y,blocks[i][j].width,blocks[i][j].height)
-                    if myrect.colliderect(blockrect) and blocks[i][j].alive and not blocks[i][j].ghost:
-                        blocks[i][j].death(blockrect)
+                    if myrect.colliderect(blockrect) and blocks[i][j].alive and blocks[i][j].ghost == -1:
+                        blocks[i][j].death(blockrect,-1)
         self.timer-=1
         if self.timer < 0:
             LOGIC.hazards.pop(LOGIC.hazards.index(self))
@@ -516,14 +554,14 @@ class LIFEHEART():
             if self.cc == 0:
                 self.cc = 30
                 self.bounces += 1
-            if r.random() > .8:
+            if r.random() > .8 and self.cx > WIDTH/3 and self.cx < (WIDTH/3)*2:
                 self.bouncespd*=-1
                 self.bouncing = True
             else:
                 self.death()
                 diff = myrect.centerx - paddlerect.centerx
                 self.xmult = interp(abs(diff),[0,PADDLE.width/2],[0.7,1.5])
-                self.ymult = 0.7+1.5-self.xmult
+                self.ymult = 2.4-self.xmult
                 if self.bounces < 4:
                     if self.x > self.cx:
                         LOGIC.lifehearts.append(LIFEHEART(self.x,self.y,self.cc,3.2,self.bounces,self.xmult,self.ymult,1))
@@ -568,7 +606,7 @@ class LOGIC():
             specialtydistribution[0][rows[i]] = 0
 
         ballnum = r.randint(1,2)
-        lifeheart = 1 if LOGIC.extralives < 3 else 0
+        lifeheart = 1 if LOGIC.extralives < 3 and len(LOGIC.lifehearts) == 0 else 0
         hazards = r.randint(5,6+floor(BALL.spd)-6)
         hazards = [r.randint(2,5) for _ in range(hazards-ballnum-lifeheart)]
         # 0 powerups 1 ball 2 slow 3 confuse 4 explosion 5 ghost 6 lifeheart
@@ -649,7 +687,7 @@ class LOGIC():
         for i in self.hazards:i.draw()
         for i in self.lifehearts:i.draw()
 
-        drawtext(self.score,25,"white",25,25)
+        drawtext(self.score,30,"white",WIDTH/2,40,"center")
 
         for i in range(len(self.hazard)):
             drawtext(self.hazard[i],25,"white",25,50+i*25)
