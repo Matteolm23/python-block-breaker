@@ -199,16 +199,14 @@ class PADDLE():
                 self.width-=2
                 self.x+=1
         
-        if LOGIC.hazard[1] > 0:
+        if LOGIC.hazard[0] > 0:
             if r.random() < 0.01:
                 self.inverted = not self.inverted
         else:
             self.inverted = False
 
-        if LOGIC.hazard[0] > 0:
-            self.spd = 5
-        else:
-            self.spd = 10
+        if self.spd < 10:
+            self.spd += 0.08
 
         if  LOGIC.powerup[1] > 0:
             targetrow = 3
@@ -352,7 +350,7 @@ class BLOCK():
                 if not i.strong and self.ghost == -1 or self.specialty == 4:
                     cbot = myrect.bottom > ballrect.top
                     ctop = myrect.top < ballrect.bottom
-                    ocbot = myrect.bottom > oballrect.top 
+                    ocbot = myrect.bottom > oballrect.top
                     octop = myrect.top < oballrect.bottom
 
                     if (cbot and not ocbot) or (ctop and not octop):
@@ -471,8 +469,9 @@ class HAZARD():
         paddlerect = g.Rect(LOGIC.paddle.x,LOGIC.paddle.y,LOGIC.paddle.width,LOGIC.paddle.height)
         self.y += 4
         if myrect.colliderect(paddlerect):
-            LOGIC.hazard[self.type] += 200 + self.type*100
-            LOGIC.hazards.pop(LOGIC.hazards.index(self))    
+            if self.type == 0: PADDLE.spd = 0
+            if self.type == 1: LOGIC.hazard[0] += 400
+            LOGIC.hazards.pop(LOGIC.hazards.index(self))
         if self.y > HEIGHT:
             LOGIC.hazards.pop(LOGIC.hazards.index(self))
 
@@ -592,8 +591,8 @@ class LOGIC():
     bc = 7
     paused = False
     score = 0
-    hazard = [0,0] #slower, confused
-    powerup = [3000,0,0,0] #stronger, homing, big paddle, shoot
+    hazard = [0] #confused
+    powerup = [0,0,0,0] #stronger, homing, big paddle, shoot
 
     def blockspawner(self,blocklist,br,bc,spacing,pnum):
         offset = (WIDTH-((BLOCK.width+spacing)*bc))/2
@@ -652,7 +651,7 @@ class LOGIC():
             if respawnblocks:
                 if BALL.spd < 10:
                     BALL.spd += .5
-                self.blockspawner(self.blocks,self.br,self.bc,5,2)
+                self.blockspawner(self.blocks,self.br,self.bc,5,r.randint(1,2))
 
             for i in self.bullets: i.step()
             self.paddle.step()
