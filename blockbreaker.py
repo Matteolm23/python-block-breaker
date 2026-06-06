@@ -162,13 +162,15 @@ class BALL():
             myrect.clamp_ip(screen_rect)
 
     def draw(self):
+        sprite = self.sprite
         if self.strong:
+            sprite = colorblend(sprite,(200,30,0))
             aurasprite = g.transform.rotate(self.strongaurasprite,(atan2(-self.vel[1],self.vel[0])*180)/pi)
             WIN.blit(aurasprite,aurasprite.get_rect(center = (self.x+self.size/2,self.y+self.size/2)))
         if self.beforestartsize >= 30:
-            WIN.blit(self.sprite,g.Rect(self.x,self.y,self.size,self.size))
+            WIN.blit(sprite,g.Rect(self.x,self.y,self.size,self.size))
         else:
-            WIN.blit(g.transform.scale(self.sprite,(self.beforestartsize,self.beforestartsize)),g.Rect(self.x+self.size/2-self.beforestartsize/2,self.y+self.size/2-self.beforestartsize/2,self.beforestartsize,self.beforestartsize))
+            WIN.blit(g.transform.scale(sprite,(self.beforestartsize,self.beforestartsize)),g.Rect(self.x+self.size/2-self.beforestartsize/2,self.y+self.size/2-self.beforestartsize/2,self.beforestartsize,self.beforestartsize))
 
 class PADDLE():
     width = 130
@@ -273,9 +275,8 @@ class BLOCK():
         self.ballsprite = ballblocksprites[i]
         self.explosivesprite = explosiveblocksprites[i]
         self.heartsprite = heartblocksprites[i]
-        self.explodingsprite = g.Surface((self.width,self.height))
+        self.explodingsprite = g.image.load('sprites/explodingcover.png')
         self.explodingsprite.set_alpha(100)
-        self.explodingsprite.fill((255,255,255))
         
         self.x = xx
         self.y = yy
@@ -592,7 +593,7 @@ class LOGIC():
     paused = False
     score = 0
     hazard = [0,0] #slower, confused
-    powerup = [0,0,0,0] #stronger, homing, big paddle, shoot
+    powerup = [3000,0,0,0] #stronger, homing, big paddle, shoot
 
     def blockspawner(self,blocklist,br,bc,spacing,pnum):
         offset = (WIDTH-((BLOCK.width+spacing)*bc))/2
