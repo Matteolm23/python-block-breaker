@@ -671,7 +671,7 @@ class LOGIC():
                 LOGIC.lifehearts.clear()
                 LOGIC.bullets.clear()
                 LOGIC.powerup = [0,0,0,0]
-                LOGIC.hazard = [0,0]
+                LOGIC.hazard = [0]
                 if LOGIC.extralives < 0: exit()
                 BALL.start = False
                 self.balls.append(BALL(-100,HEIGHT*.85))
