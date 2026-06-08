@@ -26,10 +26,14 @@ blocksprites = [
 ]
 
 ghostblocksprite = g.transform.scale(g.image.load('sprites/ghost.png').convert_alpha(), (blockw,blockh))
+powerupsprite = g.image.load('sprites/powerupsprite.png')
+strongsprite = g.image.load('sprites/strongaura.png')
+ballsprite = g.image.load('sprites/ball.png')
+extralifesprite = g.image.load('sprites/extralife.png')
 
 hazardsprites = [
-    g.image.load('sprites/goldblock.png'),
-    g.image.load('sprites/ball.png'),
+    g.image.load('sprites/slowdebuff.png'),
+    g.image.load('sprites/confusedebuff.png'),
 ]
 
 def colorblend(image, color):
@@ -50,16 +54,11 @@ heartblocksprites = [g.transform.scale(colorblend(g.image.load('sprites/heart.pn
 def degtorad(angle):
     return angle * (pi/180)
 
-def rad_from_center_diff(rect1,rect2,incr,mult = 1,anglemax = 70):
-    angle = rect1.centerx - rect2.centerx
+def rad_from_center_diff(ballrect,paddlerect,incr,mult = 1,anglemax = 70):
+    angle = ballrect.centerx - paddlerect.centerx
     angle *= mult
-    angle = min(angle, anglemax)
-    angle = max(angle, -anglemax)
-    if abs(angle) < 10:
-        if angle < 0: 
-            angle = -10
-        else:
-            angle = 10
+    angle = interp(angle,[-paddlerect.width/2,paddlerect.width/2],[-anglemax,anglemax])
+    if abs(angle) < 10: angle = -10 if angle < 0 else 10
     return degtorad(angle+incr)
 
 def drawtext(text,size,color,x,y,align = "left"):
@@ -76,8 +75,8 @@ class BALL():
     spd = 6
     size = 30
     start = False
-    sprite = g.transform.scale(g.image.load('sprites/ball.png').convert_alpha(), (size,size))
-    strongaurasprite = g.image.load('sprites/strongaura.png').convert_alpha()
+    sprite = g.transform.scale(ballsprite.convert_alpha(), (size,size))
+    strongaurasprite = strongsprite.convert_alpha()
     killcooldown = 0
 
     def __init__(self,x,y):
@@ -191,12 +190,12 @@ class PADDLE():
             self.shootcooldown-=1
 
         if LOGIC.powerup[2] > 0:
-            if self.width < 220:
-                self.width+=2
+            if PADDLE.width < 220:
+                PADDLE.width+=2
                 self.x-=1
         else:
-            if self.width > 130:
-                self.width-=2
+            if PADDLE.width > 130:
+                PADDLE.width-=2
                 self.x+=1
         
         if LOGIC.hazard[0] > 0:
@@ -205,8 +204,8 @@ class PADDLE():
         else:
             self.inverted = False
 
-        if self.spd < 10:
-            self.spd += 0.08
+        if PADDLE.spd < 10:
+            PADDLE.spd += 0.08
 
         if  LOGIC.powerup[1] > 0:
             targetrow = 3
@@ -217,7 +216,7 @@ class PADDLE():
                 targetcol = []
                 for i in range(LOGIC.bc):
                     if blocks[i][targetrow].alive:
-                        targetcol.append(abs((blocks[i][0].x+BLOCK.width/2)-(self.x+self.width/2)))
+                        targetcol.append(abs((blocks[i][0].x+BLOCK.width/2)-(self.x+PADDLE.width/2)))
                     else:
                         targetcol.append(9001)
 
@@ -238,21 +237,22 @@ class PADDLE():
 
         keys = g.key.get_pressed()
         if keys[g.K_0]:
-            LOGIC.powerups.append(POWERUP(self.x,self.y))
+            LOGIC.hazards.append(HAZARD(self.x,self.y-300,1))
+            LOGIC.hazards.append(HAZARD(self.x+70,self.y-300,0))
         if (keys[g.K_LEFT] or keys[g.K_a]):
             if self.inverted:
                 if self.width + self.x + self.spd < WIDTH:
-                    self.x += self.spd
+                    self.x += PADDLE.spd
             else:
                 if self.x - self.spd > 0:
-                    self.x -= self.spd
+                    self.x -= PADDLE.spd
         if (keys[g.K_RIGHT] or keys[g.K_d]):
             if self.inverted:
                 if self.x - self.spd > 0:
-                    self.x -= self.spd
+                    self.x -= PADDLE.spd
             else:
                 if self.width + self.x + self.spd < WIDTH:
-                    self.x += self.spd
+                    self.x += PADDLE.spd
 
     def draw(self):
         g.draw.rect(WIN,(255,255,255),g.Rect(self.x,self.y,self.width,self.height))
@@ -309,7 +309,7 @@ class BLOCK():
                 else:
                     self.exploding = 120
             elif self.specialty == 2 or self.specialty == 3:
-                LOGIC.hazards.append(HAZARD(myrect.centerx,myrect.centery,self.specialty-2))
+                LOGIC.hazards.append(HAZARD(myrect.centerx-HAZARD.size/2,myrect.centery-HAZARD.size/2,self.specialty-2))
             elif self.specialty == 6:
                 LOGIC.lifehearts.append(LIFEHEART(myrect.centerx,myrect.centery))
         if not death == None and not death == -1:
@@ -427,12 +427,12 @@ class BULLET():
 
 class POWERUP():
 
-    size = 30
+    size = 35
 
     def __init__(self,x,y):
         self.x = x
         self.y = y
-        self.sprite = g.transform.scale(g.image.load('sprites/greenblock.png').convert_alpha(), (self.size,self.size))
+        self.sprite = g.transform.scale(powerupsprite.convert_alpha(), (self.size,self.size))
     
     def step(self):
         self.y+=3
@@ -456,7 +456,7 @@ class POWERUP():
 
 class HAZARD():
 
-    size = 30
+    size = 35
 
     def __init__(self,x,y,type):
         self.x = x
@@ -508,10 +508,10 @@ class EXPLOSION():
 class LIFEHEART():
 
     r = 150
-    size = 30   
-    sprite = g.transform.scale(g.image.load('sprites/purpleblock.png').convert_alpha(), (size,size))
+    size = 35  
+    sprite = g.transform.scale(extralifesprite.convert_alpha(), (size,size))
 
-    def __init__(self,x,y,collidecooldown = 0,angle = 3.2,bounces = 0,xmult = 1,ymult = 1,bspdmult = -1):
+    def __init__(self,x,y,collidecooldown = 0,angle = 3.2,bounces = 0,xmult = 1,ymult = 1,bspdmult = -1, rot = 0):
         self.bouncespd = 0.025*bspdmult
         self.c = angle
         self.xmult = xmult
@@ -523,6 +523,7 @@ class LIFEHEART():
         self.bouncing = True
         self.bounces = bounces
         self.cc = collidecooldown
+        self.angle = rot
 
     def death(self,addlife = False):
         if addlife:
@@ -532,6 +533,8 @@ class LIFEHEART():
 
     def step(self):
         if self.cc > 0: self.cc -= 1
+
+        self.angle = self.angle - 5 if self.bouncespd > 0 else self.angle + 5
 
         if self.bouncing:
             self.c += self.bouncespd
@@ -554,28 +557,29 @@ class LIFEHEART():
             if self.cc == 0:
                 self.cc = 30
                 self.bounces += 1
-            if r.random() > .8 and self.cx > WIDTH/3 and self.cx < (WIDTH/3)*2:
+            if r.random() > .5 and self.cx > WIDTH/3 and self.cx < (WIDTH/3)*2:
                 self.bouncespd*=-1
                 self.bouncing = True
             else:
                 self.death()
                 diff = myrect.centerx - paddlerect.centerx
-                self.xmult = interp(abs(diff),[0,PADDLE.width/2],[0.7,1.5])
-                self.ymult = 2.4-self.xmult
+                self.xmult = interp(abs(diff),[0,PADDLE.width/2],[0.7,1.3])
+                self.ymult = 2.2-self.xmult
                 if self.bounces < 4:
                     if self.x > self.cx:
-                        LOGIC.lifehearts.append(LIFEHEART(self.x,self.y,self.cc,3.2,self.bounces,self.xmult,self.ymult,1))
+                        LOGIC.lifehearts.append(LIFEHEART(self.x,self.y,self.cc,3.2,self.bounces,self.xmult,self.ymult,1,self.angle))
                     else:
-                        LOGIC.lifehearts.append(LIFEHEART(self.x-(self.r*(2*self.xmult)),self.y,self.cc,6.2,self.bounces,self.xmult,self.ymult,-1))
+                        LOGIC.lifehearts.append(LIFEHEART(self.x-(self.r*(2*self.xmult)),self.y,self.cc,6.2,self.bounces,self.xmult,self.ymult,-1,self.angle))
         
-        if self.bounces == 4:
+        if self.bounces == 5:
             self.death(True)
 
         if self.y > HEIGHT or self.cy > HEIGHT:
             LOGIC.lifehearts.pop(LOGIC.lifehearts.index(self))
 
     def draw(self):
-        WIN.blit(self.sprite,g.Rect(self.x,self.y,self.size,self.size))
+        s = g.transform.rotate(self.sprite, self.angle)
+        WIN.blit(s,s.get_rect(center=g.Rect(self.x,self.y,self.size,self.size).center))
 
 class LOGIC(): 
     blink = 0
@@ -606,7 +610,7 @@ class LOGIC():
             specialtydistribution[0][rows[i]] = 0
 
         ballnum = r.randint(1,2)
-        lifeheart = 1 if LOGIC.extralives < 3 and len(LOGIC.lifehearts) == 0 else 0
+        lifeheart = 1 if LOGIC.extralives < 3 and len(LOGIC.lifehearts) == 0 and r.random() > .5 else 0
         hazards = r.randint(5,6+floor(BALL.spd)-6)
         hazards = [r.randint(2,5) for _ in range(hazards-ballnum-lifeheart)]
         # 0 powerups 1 ball 2 slow 3 confuse 4 explosion 5 ghost 6 lifeheart
@@ -649,7 +653,7 @@ class LOGIC():
                         self.blocks[i][j].step(self.balls)
                         
             if respawnblocks:
-                if BALL.spd < 10:
+                if BALL.spd < 11:
                     BALL.spd += .5
                 self.blockspawner(self.blocks,self.br,self.bc,5,r.randint(1,2))
 
