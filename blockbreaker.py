@@ -71,6 +71,14 @@ def drawtext(text,size,color,x,y,align = "left"):
         textrect = rtext.get_rect(center = (x,y))
     WIN.blit(rtext, textrect)
 
+#only allows spritesheets in one horizontal line
+def get_anim_frame(sheet,framew,frameh,realw,realh,totanimtime,animtime,framenum):
+    frame = floor(interp(animtime,[0,totanimtime],[0,framenum-1]))
+    img = g.Surface((framew,frameh)).convert_alpha()
+    img.fill((0,0,0,0))
+    img.blit(sheet, (0,0), (framew*frame,0,framew,frameh))
+    return g.transform.scale(img,(realw,realh))
+
 class BALL():
     spd = 6
     size = 30
@@ -156,7 +164,7 @@ class BALL():
             self.y += self.vel[1]
 
             if self.y < 0:
-                self.y -= self.size/2
+                self.y -= self.size
 
             myrect.clamp_ip(screen_rect)
 
@@ -305,7 +313,7 @@ class BLOCK():
             elif self.specialty == 4 and self.exploding == -1:
                 if death == -1:
                     self.alive = False
-                    LOGIC.hazards.append(EXPLOSION(myrect.centerx-(BLOCK.width*3*.9)/2,myrect.centery+BLOCK.height*.05))
+                    LOGIC.hazards.append(EXPLOSION(myrect.centerx-(BLOCK.width*3*.9)/2,self.y+BLOCK.height*.05))
                 else:
                     self.exploding = 120
             elif self.specialty == 2 or self.specialty == 3:
@@ -330,7 +338,7 @@ class BLOCK():
             self.exploding -= 1
             if self.exploding < 1:
                 self.alive = False
-                LOGIC.hazards.append(EXPLOSION(myrect.centerx-(BLOCK.width*3*.9)/2,myrect.centery+BLOCK.height*.05))
+                LOGIC.hazards.append(EXPLOSION(myrect.centerx-(BLOCK.width*3*.9)/2,self.y+BLOCK.height*.05))
 
         if self.collidecooldown > 0:
             self.collidecooldown-=1
@@ -482,15 +490,24 @@ class EXPLOSION():
 
     width = BLOCK.width*3*.9
     height = BLOCK.height*2*.9
+    maxtimer = 30
 
     def __init__(self,x,y):
         self.x = x
         self.y = y
-        self.timer = 30
-        self.sprite = g.transform.scale(g.image.load('sprites/redblock.png').convert_alpha(), (self.width,self.height))
+        self.timer = self.maxtimer
+        self.sprite = g.image.load('sprites/exploding_anim.png').convert_alpha()
+        self.explosionballs = []
+    
+    def addexplosionball(self):
+        w = r.randint(75,125)
+        hw = floor(self.width/2)
+        hh = floor(self.height/2)
+        self.explosionballs.append([self.x+self.width/2-w/2+r.randint(-hw,hw),self.y+self.height/2-w/2+r.randint(-hh,hh),w,0])
+            
 
     def step(self):
-        if self.timer == 30:
+        if self.timer == self.maxtimer:
             blocks = LOGIC.blocks
             myrect = g.Rect(self.x,self.y,self.width,self.height)
             for i in range(LOGIC.bc):
@@ -503,7 +520,17 @@ class EXPLOSION():
             LOGIC.hazards.pop(LOGIC.hazards.index(self))
 
     def draw(self):
-        WIN.blit(self.sprite,g.Rect(self.x,self.y,self.width,self.height))
+        if self.timer > self.maxtimer-11:
+            self.addexplosionball()
+            if self.timer == 5:
+                for _ in range(5): self.addexplosionball()
+
+        for i in self.explosionballs:
+            i[3]+=1
+            WIN.blit(get_anim_frame(self.sprite,100,100,i[2],i[2],20,i[3],8),g.Rect(i[0],i[1],i[2],i[2]))
+            if i[3] > 19:
+                self.explosionballs.pop(self.explosionballs.index(i))
+            
 
 class LIFEHEART():
 
@@ -586,7 +613,7 @@ class LOGIC():
     blocks = []
     powerups = []
     bullets = []
-    hazards = []
+    hazards = [EXPLOSION(300,400)]
     lifehearts = []
     paddle = PADDLE()
     balls = [BALL(0,HEIGHT*.85)]
@@ -610,7 +637,7 @@ class LOGIC():
             specialtydistribution[0][rows[i]] = 0
 
         ballnum = r.randint(1,2)
-        lifeheart = 1 if LOGIC.extralives < 3 and len(LOGIC.lifehearts) == 0 and r.random() > .5 else 0
+        lifeheart = 1 if LOGIC.extralives < 3 and len(LOGIC.lifehearts) == 0 and r.random() > .33 else 0
         hazards = r.randint(5,6+floor(BALL.spd)-6)
         hazards = [r.randint(2,5) for _ in range(hazards-ballnum-lifeheart)]
         # 0 powerups 1 ball 2 slow 3 confuse 4 explosion 5 ghost 6 lifeheart
