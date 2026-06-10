@@ -608,12 +608,14 @@ class LIFEHEART():
         s = g.transform.rotate(self.sprite, self.angle)
         WIN.blit(s,s.get_rect(center=g.Rect(self.x,self.y,self.size,self.size).center))
 
-class LOGIC(): 
+class LOGIC():
+    lifeslotsprite = g.transform.scale(g.image.load('sprites/lifeslot.png').convert_alpha(),(34,34))
+    lifesprite = g.transform.scale(g.image.load('sprites/life.png').convert_alpha(),(34,34))
     blink = 0
     blocks = []
     powerups = []
     bullets = []
-    hazards = [EXPLOSION(300,400)]
+    hazards = []
     lifehearts = []
     paddle = PADDLE()
     balls = [BALL(0,HEIGHT*.85)]
@@ -718,13 +720,11 @@ class LOGIC():
         for i in self.hazards:i.draw()
         for i in self.lifehearts:i.draw()
 
-        drawtext(self.score,30,"white",WIDTH/2,40,"center")
+        for i in range(3): 
+            WIN.blit(self.lifeslotsprite,g.Rect(WIDTH-144+40*i,21,32,32))
+            if i < self.extralives: WIN.blit(self.lifesprite,g.Rect(WIDTH-144+40*i,21,32,32))
 
-        for i in range(len(self.hazard)):
-            drawtext(self.hazard[i],25,"white",25,50+i*25)
-        for i in range(len(self.powerup)):
-            drawtext(self.powerup[i],25,"white",25,150+i*25)
-        drawtext(self.extralives,25,"white",WIDTH-50,25)
+        drawtext(self.score,30,"white",WIDTH/2,40,"center")
         
         if self.paused and self.blink % 50 > 25:
             drawtext("PAUSED",50,"white",WIDTH/2,HEIGHT/2,"center")
