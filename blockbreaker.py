@@ -1,12 +1,17 @@
 import pygame as g
 import random as r
 from sys import exit
-from os import path, chdir
+from os import path, chdir, getcwd
 from math import sin,cos,pi,sqrt,acos,asin,floor,atan2
 from numpy import interp
 
 chdir(path.dirname(path.realpath(__file__)))
+cwd = getcwd()
+
 g.init()
+
+g.display.set_caption('Block Breaker')
+g.display.set_icon(g.image.load(path.join('sprites\\ball.png')))
 
 WIDTH, HEIGHT = 720,720
 WIN = g.display.set_mode((WIDTH,HEIGHT))
@@ -18,22 +23,22 @@ blockw = 75
 blockh = 40
 
 blocksprites = [
-    g.transform.scale(g.image.load('sprites/greenblock.png').convert_alpha(), (blockw,blockh)),
-    g.transform.scale(g.image.load('sprites/redblock.png').convert_alpha(), (blockw,blockh)),
-    g.transform.scale(g.image.load('sprites/cyanblock.png').convert_alpha(), (blockw,blockh)),
-    g.transform.scale(g.image.load('sprites/goldblock.png').convert_alpha(), (blockw,blockh)),
-    g.transform.scale(g.image.load('sprites/purpleblock.png').convert_alpha(), (blockw,blockh)),
+    g.transform.scale(g.image.load(path.join(cwd, 'sprites\\greenblock.png')).convert_alpha(), (blockw,blockh)),
+    g.transform.scale(g.image.load(path.join(cwd, 'sprites\\redblock.png')).convert_alpha(), (blockw,blockh)),
+    g.transform.scale(g.image.load(path.join(cwd, 'sprites\\cyanblock.png')).convert_alpha(), (blockw,blockh)),
+    g.transform.scale(g.image.load(path.join(cwd, 'sprites\\goldblock.png')).convert_alpha(), (blockw,blockh)),
+    g.transform.scale(g.image.load(path.join(cwd, 'sprites\\purpleblock.png')).convert_alpha(), (blockw,blockh)),
 ]
 
-ghostblocksprite = g.transform.scale(g.image.load('sprites/ghost.png').convert_alpha(), (blockw,blockh))
-powerupsprite = g.image.load('sprites/powerupsprite.png')
-strongsprite = g.image.load('sprites/strongaura.png')
-ballsprite = g.image.load('sprites/ball.png')
-extralifesprite = g.image.load('sprites/extralife.png')
+ghostblocksprite = g.transform.scale(g.image.load(path.join(cwd, 'sprites\\ghost.png')).convert_alpha(), (blockw,blockh))
+powerupsprite = g.image.load(path.join(cwd, 'sprites\\powerupsprite.png'))
+strongsprite = g.image.load(path.join(cwd, 'sprites\\strongaura.png'))
+ballsprite = g.image.load(path.join(cwd, 'sprites\\ball.png'))
+extralifesprite = g.image.load(path.join(cwd, 'sprites\\extralife.png'))
 
 hazardsprites = [
-    g.image.load('sprites/slowdebuff.png'),
-    g.image.load('sprites/confusedebuff.png'),
+    g.image.load(path.join(cwd, 'sprites\\slowdebuff.png')),
+    g.image.load(path.join(cwd, 'sprites\\confusedebuff.png')),
 ]
 
 def colorblend(image, color):
@@ -44,11 +49,11 @@ def colorblend(image, color):
     return finalImage
 
 blockcolor = [(145,215,165),(190,40,60),(150, 255, 245),(245, 215, 100),(228, 133, 255)]
-powerupblocksprites = [g.transform.scale(colorblend(g.image.load('sprites/powerup.png').convert_alpha(), blockcolor[i]), (blockw,blockh)) for i in range(len(blockcolor))]
-skullsprites = [g.transform.scale(colorblend(g.image.load('sprites/skull.png').convert_alpha(), blockcolor[i]), (blockw,blockh)) for i in range(len(blockcolor))]
-ballblocksprites = [g.transform.scale(colorblend(g.image.load('sprites/ballblock.png').convert_alpha(), blockcolor[i]), (blockw,blockh)) for i in range(len(blockcolor))]
-explosiveblocksprites = [g.transform.scale(colorblend(g.image.load('sprites/explosive.png').convert_alpha(), blockcolor[i]), (blockw,blockh)) for i in range(len(blockcolor))]
-heartblocksprites = [g.transform.scale(colorblend(g.image.load('sprites/heart.png').convert_alpha(), blockcolor[i]), (blockw,blockh)) for i in range(len(blockcolor))]
+powerupblocksprites = [g.transform.scale(colorblend(g.image.load(path.join(cwd, 'sprites\\powerup.png')).convert_alpha(), blockcolor[i]), (blockw,blockh)) for i in range(len(blockcolor))]
+skullsprites = [g.transform.scale(colorblend(g.image.load(path.join(cwd, 'sprites\\skull.png')).convert_alpha(), blockcolor[i]), (blockw,blockh)) for i in range(len(blockcolor))]
+ballblocksprites = [g.transform.scale(colorblend(g.image.load(path.join(cwd, 'sprites\\ballblock.png')).convert_alpha(), blockcolor[i]), (blockw,blockh)) for i in range(len(blockcolor))]
+explosiveblocksprites = [g.transform.scale(colorblend(g.image.load(path.join(cwd, 'sprites\\explosive.png')).convert_alpha(), blockcolor[i]), (blockw,blockh)) for i in range(len(blockcolor))]
+heartblocksprites = [g.transform.scale(colorblend(g.image.load(path.join(cwd, 'sprites\\heart.png')).convert_alpha(), blockcolor[i]), (blockw,blockh)) for i in range(len(blockcolor))]
 
 
 def degtorad(angle):
@@ -184,7 +189,6 @@ class PADDLE():
     height = 15
     spd = 10
     inverted = False
-    #sprite = g.transform.scale(g.image.load('sprites/paddle.png').convert_alpha(), (width,height))
 
     def __init__(self):
         self.x = WIDTH/2 - self.width/2
@@ -281,7 +285,7 @@ class BLOCK():
         self.ballsprite = ballblocksprites[i]
         self.explosivesprite = explosiveblocksprites[i]
         self.heartsprite = heartblocksprites[i]
-        self.explodingsprite = g.image.load('sprites/explodingcover.png')
+        self.explodingsprite = g.image.load(path.join(cwd, 'sprites\\explodingcover.png'))
         self.explodingsprite.set_alpha(100)
         
         self.x = xx
@@ -496,7 +500,7 @@ class EXPLOSION():
         self.x = x
         self.y = y
         self.timer = self.maxtimer
-        self.sprite = g.image.load('sprites/exploding_anim.png').convert_alpha()
+        self.sprite = g.image.load(path.join(cwd, 'sprites\\exploding_anim.png')).convert_alpha()
         self.explosionballs = []
     
     def addexplosionball(self):
@@ -609,8 +613,8 @@ class LIFEHEART():
         WIN.blit(s,s.get_rect(center=g.Rect(self.x,self.y,self.size,self.size).center))
 
 class LOGIC():
-    lifeslotsprite = g.transform.scale(g.image.load('sprites/lifeslot.png').convert_alpha(),(34,34))
-    lifesprite = g.transform.scale(g.image.load('sprites/life.png').convert_alpha(),(34,34))
+    lifeslotsprite = g.transform.scale(g.image.load(path.join(cwd, 'sprites\\lifeslot.png')).convert_alpha(),(34,34))
+    lifesprite = g.transform.scale(g.image.load(path.join(cwd, 'sprites\\life.png')).convert_alpha(),(34,34))
     blink = 0
     blocks = []
     powerups = []
