@@ -245,8 +245,8 @@ class PADDLE():
 
         keys = g.key.get_pressed()
         if keys[g.K_0]:
-            LOGIC.hazards.append(HAZARD(self.x,self.y-300,1))
-            LOGIC.hazards.append(HAZARD(self.x+70,self.y-300,0))
+            if LOGIC.extralives + len(LOGIC.lifehearts) < 3:
+                LOGIC.lifehearts.append(LIFEHEART(300,400))
         if (keys[g.K_LEFT] or keys[g.K_a]):
             if self.inverted:
                 if self.width + self.x + self.spd < WIDTH:
@@ -592,7 +592,7 @@ class LIFEHEART():
                 diff = myrect.centerx - paddlerect.centerx
                 self.xmult = interp(abs(diff),[0,PADDLE.width/2],[0.7,1.3])
                 self.ymult = 2.2-self.xmult
-                if self.bounces < 4:
+                if self.bounces < 5:
                     if self.x > self.cx:
                         LOGIC.lifehearts.append(LIFEHEART(self.x,self.y,self.cc,3.2,self.bounces,self.xmult,self.ymult,1,self.angle))
                     else:
@@ -602,7 +602,7 @@ class LIFEHEART():
             self.death(True)
 
         if self.y > HEIGHT or self.cy > HEIGHT:
-            LOGIC.lifehearts.pop(LOGIC.lifehearts.index(self))
+            self.death()
 
     def draw(self):
         s = g.transform.rotate(self.sprite, self.angle)
@@ -693,7 +693,7 @@ class LOGIC():
             for i in self.powerups:i.step()
             for i in self.lifehearts:i.step()
 
-            if len(self.balls) == 0:
+            if len(LOGIC.balls) == 0:
                 LOGIC.extralives -= 1
                 LOGIC.powerups.clear()
                 LOGIC.hazards.clear()
@@ -722,7 +722,7 @@ class LOGIC():
 
         for i in range(3): 
             WIN.blit(self.lifeslotsprite,g.Rect(WIDTH-144+40*i,21,32,32))
-            if i < self.extralives: WIN.blit(self.lifesprite,g.Rect(WIDTH-144+40*i,21,32,32))
+            if i < LOGIC.extralives: WIN.blit(self.lifesprite,g.Rect(WIDTH-144+40*i,21,32,32))
 
         drawtext(self.score,30,"white",WIDTH/2,40,"center")
         
