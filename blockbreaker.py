@@ -595,13 +595,13 @@ class LIFEHEART():
                 diff = myrect.centerx - paddlerect.centerx
                 self.xmult = interp(abs(diff),[0,PADDLE.width/2],[0.7,1.3])
                 self.ymult = 2.2-self.xmult
-                if self.bounces < 5:
+                if self.bounces < 4:
                     if self.x > self.cx:
                         LOGIC.lifehearts.append(LIFEHEART(self.x,self.y,self.cc,3.2,self.bounces,self.xmult,self.ymult,1,self.angle))
                     else:
                         LOGIC.lifehearts.append(LIFEHEART(self.x-(self.r*(2*self.xmult)),self.y,self.cc,6.2,self.bounces,self.xmult,self.ymult,-1,self.angle))
         
-        if self.bounces == 5:
+        if self.bounces == 4:
             self.death(True)
 
         if self.y > HEIGHT or self.cy > HEIGHT:
