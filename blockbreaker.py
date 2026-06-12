@@ -1,12 +1,11 @@
 import pygame as g
 import random as r
 from sys import exit
-from os import path, chdir, getcwd
+from os import path
 from math import sin,cos,pi,sqrt,acos,asin,floor,atan2
 from numpy import interp
 
-chdir(path.dirname(path.realpath(__file__)))
-cwd = getcwd()
+#chdir(path.dirname(path.realpath(__file__)))
 
 g.init()
 
@@ -23,22 +22,22 @@ blockw = 75
 blockh = 40
 
 blocksprites = [
-    g.transform.scale(g.image.load(path.join(cwd, 'sprites\\greenblock.png')).convert_alpha(), (blockw,blockh)),
-    g.transform.scale(g.image.load(path.join(cwd, 'sprites\\redblock.png')).convert_alpha(), (blockw,blockh)),
-    g.transform.scale(g.image.load(path.join(cwd, 'sprites\\cyanblock.png')).convert_alpha(), (blockw,blockh)),
-    g.transform.scale(g.image.load(path.join(cwd, 'sprites\\goldblock.png')).convert_alpha(), (blockw,blockh)),
-    g.transform.scale(g.image.load(path.join(cwd, 'sprites\\purpleblock.png')).convert_alpha(), (blockw,blockh)),
+    g.transform.scale(g.image.load(path.join('sprites\\greenblock.png')).convert_alpha(), (blockw,blockh)),
+    g.transform.scale(g.image.load(path.join('sprites\\redblock.png')).convert_alpha(), (blockw,blockh)),
+    g.transform.scale(g.image.load(path.join('sprites\\cyanblock.png')).convert_alpha(), (blockw,blockh)),
+    g.transform.scale(g.image.load(path.join('sprites\\goldblock.png')).convert_alpha(), (blockw,blockh)),
+    g.transform.scale(g.image.load(path.join('sprites\\purpleblock.png')).convert_alpha(), (blockw,blockh)),
 ]
 
-ghostblocksprite = g.transform.scale(g.image.load(path.join(cwd, 'sprites\\ghost.png')).convert_alpha(), (blockw,blockh))
-powerupsprite = g.image.load(path.join(cwd, 'sprites\\powerupsprite.png'))
-strongsprite = g.image.load(path.join(cwd, 'sprites\\strongaura.png'))
-ballsprite = g.image.load(path.join(cwd, 'sprites\\ball.png'))
-extralifesprite = g.image.load(path.join(cwd, 'sprites\\extralife.png'))
+ghostblocksprite = g.transform.scale(g.image.load(path.join('sprites\\ghost.png')).convert_alpha(), (blockw,blockh))
+powerupsprite = g.image.load(path.join('sprites\\powerupsprite.png'))
+strongsprite = g.image.load(path.join('sprites\\strongaura.png'))
+ballsprite = g.image.load(path.join('sprites\\ball.png'))
+extralifesprite = g.image.load(path.join('sprites\\extralife.png'))
 
 hazardsprites = [
-    g.image.load(path.join(cwd, 'sprites\\slowdebuff.png')),
-    g.image.load(path.join(cwd, 'sprites\\confusedebuff.png')),
+    g.image.load(path.join('sprites\\slowdebuff.png')),
+    g.image.load(path.join('sprites\\confusedebuff.png')),
 ]
 
 def colorblend(image, color):
@@ -49,11 +48,11 @@ def colorblend(image, color):
     return finalImage
 
 blockcolor = [(145,215,165),(190,40,60),(150, 255, 245),(245, 215, 100),(228, 133, 255)]
-powerupblocksprites = [g.transform.scale(colorblend(g.image.load(path.join(cwd, 'sprites\\powerup.png')).convert_alpha(), blockcolor[i]), (blockw,blockh)) for i in range(len(blockcolor))]
-skullsprites = [g.transform.scale(colorblend(g.image.load(path.join(cwd, 'sprites\\skull.png')).convert_alpha(), blockcolor[i]), (blockw,blockh)) for i in range(len(blockcolor))]
-ballblocksprites = [g.transform.scale(colorblend(g.image.load(path.join(cwd, 'sprites\\ballblock.png')).convert_alpha(), blockcolor[i]), (blockw,blockh)) for i in range(len(blockcolor))]
-explosiveblocksprites = [g.transform.scale(colorblend(g.image.load(path.join(cwd, 'sprites\\explosive.png')).convert_alpha(), blockcolor[i]), (blockw,blockh)) for i in range(len(blockcolor))]
-heartblocksprites = [g.transform.scale(colorblend(g.image.load(path.join(cwd, 'sprites\\heart.png')).convert_alpha(), blockcolor[i]), (blockw,blockh)) for i in range(len(blockcolor))]
+powerupblocksprites = [g.transform.scale(colorblend(g.image.load(path.join('sprites\\powerup.png')).convert_alpha(), blockcolor[i]), (blockw,blockh)) for i in range(len(blockcolor))]
+skullsprites = [g.transform.scale(colorblend(g.image.load(path.join('sprites\\skull.png')).convert_alpha(), blockcolor[i]), (blockw,blockh)) for i in range(len(blockcolor))]
+ballblocksprites = [g.transform.scale(colorblend(g.image.load(path.join('sprites\\ballblock.png')).convert_alpha(), blockcolor[i]), (blockw,blockh)) for i in range(len(blockcolor))]
+explosiveblocksprites = [g.transform.scale(colorblend(g.image.load(path.join('sprites\\explosive.png')).convert_alpha(), blockcolor[i]), (blockw,blockh)) for i in range(len(blockcolor))]
+heartblocksprites = [g.transform.scale(colorblend(g.image.load(path.join('sprites\\heart.png')).convert_alpha(), blockcolor[i]), (blockw,blockh)) for i in range(len(blockcolor))]
 
 
 def degtorad(angle):
@@ -285,7 +284,7 @@ class BLOCK():
         self.ballsprite = ballblocksprites[i]
         self.explosivesprite = explosiveblocksprites[i]
         self.heartsprite = heartblocksprites[i]
-        self.explodingsprite = g.image.load(path.join(cwd, 'sprites\\explodingcover.png'))
+        self.explodingsprite = g.image.load(path.join('sprites\\explodingcover.png'))
         self.explodingsprite.set_alpha(100)
         
         self.x = xx
@@ -500,7 +499,7 @@ class EXPLOSION():
         self.x = x
         self.y = y
         self.timer = self.maxtimer
-        self.sprite = g.image.load(path.join(cwd, 'sprites\\exploding_anim.png')).convert_alpha()
+        self.sprite = g.image.load(path.join('sprites\\exploding_anim.png')).convert_alpha()
         self.explosionballs = []
     
     def addexplosionball(self):
@@ -613,8 +612,9 @@ class LIFEHEART():
         WIN.blit(s,s.get_rect(center=g.Rect(self.x,self.y,self.size,self.size).center))
 
 class LOGIC():
-    lifeslotsprite = g.transform.scale(g.image.load(path.join(cwd, 'sprites\\lifeslot.png')).convert_alpha(),(34,34))
-    lifesprite = g.transform.scale(g.image.load(path.join(cwd, 'sprites\\life.png')).convert_alpha(),(34,34))
+    lifeslotsprite = g.transform.scale(g.image.load(path.join('sprites\\lifeslot.png')).convert_alpha(),(34,34))
+    lifesprite = g.transform.scale(g.image.load(path.join('sprites\\life.png')).convert_alpha(),(34,34))
+    tutorialsprite = [g.transform.scale(g.image.load(path.join('sprites\\tutorial1.png')).convert_alpha(),(180,120)),g.transform.scale(g.image.load(path.join('sprites\\tutorial2.png')).convert_alpha(),(180,120))]
     blink = 0
     blocks = []
     powerups = []
@@ -630,6 +630,7 @@ class LOGIC():
     score = 0
     hazard = [0] #confused
     powerup = [0,0,0,0] #stronger, homing, big paddle, shoot
+    tutorialtimer = 60
 
     def blockspawner(self,blocklist,br,bc,spacing,pnum):
         offset = (WIDTH-((BLOCK.width+spacing)*bc))/2
@@ -705,9 +706,12 @@ class LOGIC():
                 LOGIC.bullets.clear()
                 LOGIC.powerup = [0,0,0,0]
                 LOGIC.hazard = [0]
+                LOGIC.paused = False
                 if LOGIC.extralives < 0: exit()
                 BALL.start = False
                 self.balls.append(BALL(-100,HEIGHT*.85))
+
+            if BALL.start and LOGIC.tutorialtimer > 0: LOGIC.tutorialtimer -= 1
 
     def draw(self):
         self.blink = self.blink+1 if self.blink < 50 else 0
@@ -728,10 +732,18 @@ class LOGIC():
             WIN.blit(self.lifeslotsprite,g.Rect(WIDTH-144+40*i,21,32,32))
             if i < LOGIC.extralives: WIN.blit(self.lifesprite,g.Rect(WIDTH-144+40*i,21,32,32))
 
-        drawtext(self.score,30,"white",WIDTH/2,40,"center")
+        drawtext(self.score,30,"white",WIDTH/2-3,40,"center")
         
         if self.paused and self.blink % 50 > 25:
             drawtext("PAUSED",50,"white",WIDTH/2,HEIGHT/2,"center")
+
+        if LOGIC.tutorialtimer > 0:
+            s = g.Surface((WIDTH,HEIGHT))
+            s.set_alpha(interp(LOGIC.tutorialtimer,[0,60],[0,100]))
+            WIN.blit(s,g.Rect(0,0,WIDTH,HEIGHT))
+            for i in range(len(self.tutorialsprite)):
+                self.tutorialsprite[i].set_alpha(interp(LOGIC.tutorialtimer,[0,60],[0,255]))
+                WIN.blit(self.tutorialsprite[i],g.Rect(WIDTH/2-220+260*i,HEIGHT/2,180,120))
 
         g.display.update()
 
@@ -743,7 +755,7 @@ while(1):
         if event.type == g.QUIT:
             exit()
         if event.type == g.KEYUP:
-            if event.key == g.K_ESCAPE:
+            if event.key == g.K_ESCAPE and BALL.start:
                 LOGIC.paused = not LOGIC.paused
 
     game.step()
