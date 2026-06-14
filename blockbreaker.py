@@ -86,7 +86,6 @@ def get_anim_frame(sheet,realw,realh,totanimtime,animtime,framenum):
     return g.transform.scale(img,(realw,realh))
 
 def three_slice_horizontal(sprite,cornerw,cornerh,initialrect,realrect):
-    wratio = realrect.width / initialrect.width
     s = g.transform.scale(sprite,(initialrect.width,initialrect.height))
     centerimg = g.Surface((initialrect.width-cornerw*2,initialrect.height)).convert_alpha()
     centerimg.fill((0,0,0,0))
