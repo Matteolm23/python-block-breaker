@@ -5,8 +5,6 @@ from os import path
 from math import sin,cos,pi,sqrt,acos,asin,floor,atan2
 from numpy import interp
 
-#chdir(path.dirname(path.realpath(__file__)))
-
 g.init()
 
 g.display.set_caption('Block Breaker')
@@ -89,12 +87,16 @@ def get_anim_frame(sheet,realw,realh,totanimtime,animtime,framenum):
 
 def three_slice_horizontal(sprite,cornerw,cornerh,initialrect,realrect):
     wratio = realrect.width / initialrect.width
-    s = g.transform.scale(sprite,(realrect.width,realrect.height))
-    centerimg = g.Surface((realrect.width-cornerw*2,realrect.height))
-    centerimg.blit(s, (0,0), ((cornerw+1)*wratio,0,(realrect.width-cornerw*2*wratio)-1,realrect.height))
-    img = g.Surface((realrect.width,realrect.height))
-    #img.blit(centerimg, (0,0))
-    #img.blit(corner, (centerimg.get_width(),0))
+    s = g.transform.scale(sprite,(initialrect.width,initialrect.height))
+    centerimg = g.Surface((initialrect.width-cornerw*2,initialrect.height)).convert_alpha()
+    centerimg.fill((0,0,0,0))
+    centerimg.blit(s, (0,0), (cornerw,0,(initialrect.width-cornerw*2),realrect.height))
+    centerimg = g.transform.scale(centerimg,(realrect.width-cornerw*2,realrect.height))
+    img = g.Surface((realrect.width,realrect.height)).convert_alpha()
+    img.fill((0,0,0,0))
+    img.blit(s, (0,0))
+    img.blit(centerimg, (cornerw,0))
+    img.blit(s, (centerimg.get_width()+cornerw,0), (s.get_width()-cornerw,0,cornerw,cornerh))
     return img
 
 class BALL():
@@ -162,8 +164,8 @@ class BALL():
                     self.vel[1]*=1.3
                 
                 if LOGIC.powerup[3] > 0 and paddle.shootcooldown == 0:
-                    LOGIC.bullets.append(BULLET(paddle.x+10,paddle.y-10))
-                    LOGIC.bullets.append(BULLET(paddle.x+paddle.width-20,paddle.y-10))
+                    LOGIC.bullets.append(BULLET(paddle.x+5,paddle.y-10))
+                    LOGIC.bullets.append(BULLET(paddle.x+paddle.width-9,paddle.y-10))
                     paddle.shootcooldown = 10
 
             if self.x + self.size + self.vel[0] > WIDTH or self.x + self.vel[0] < 0:
@@ -182,7 +184,7 @@ class BALL():
             self.y += self.vel[1]
 
             if self.y < 0:
-                self.y -= self.size
+                self.y += self.size
 
             myrect.clamp_ip(screen_rect)
 
@@ -203,6 +205,8 @@ class PADDLE():
     spd = 10
     inverted = False
     sprite = g.image.load(path.join('sprites\\paddle.png'))
+    cannonsprite = g.image.load(path.join('sprites\\paddlecannons.png'))
+    cannonheight = 30
 
     def __init__(self):
         self.x = WIDTH/2 - self.width/2
@@ -281,12 +285,17 @@ class PADDLE():
                     self.x += PADDLE.spd
 
     def draw(self):
-        myrect = g.Rect(self.x,self.y,self.width,self.height)
-        WIN.blit(g.transform.scale(self.sprite,(self.width,self.height)),g.Rect(self.x,self.y+20,self.width,self.height))
-        WIN.blit(three_slice_horizontal(self.sprite,15,15,g.Rect(self.x,self.y,130,15),myrect),myrect)
-        if LOGIC.powerup[3] > 0:
-            g.draw.rect(WIN,(255,255,255),g.Rect(self.x+10,self.y-10,10,10))
-            g.draw.rect(WIN,(255,255,255),g.Rect(self.x+self.width-20,self.y-10,10,10))
+        drawrect = g.Rect(self.x-10,self.y,self.width+20,self.height+15)
+        WIN.blit(three_slice_horizontal(self.sprite,30,30,g.Rect(self.x,self.y,130,30),drawrect),drawrect)
+        
+        if LOGIC.powerup[3] > 0 and self.cannonheight < 42:
+            self.cannonheight += .5
+        elif LOGIC.powerup[3] <= 0 and self.cannonheight > 30:
+            self.cannonheight -= .5
+
+        if self.cannonheight > 30:
+            WIN.blit(g.transform.scale(self.cannonsprite,(15,self.cannonheight)),g.Rect(self.x,self.y-(self.cannonheight-30),11,10))
+            WIN.blit(g.transform.flip(g.transform.scale(self.cannonsprite,(15,self.cannonheight)),True,False),g.Rect(self.x+self.width-13,self.y-(self.cannonheight-30),10,10))
 
 class BLOCK():
     width = blockw
@@ -324,7 +333,8 @@ class BLOCK():
 
     def death(self,myrect,death = None):
         BALL.killcooldown = 2
-        LOGIC.score += self.worth
+        if self.exploding == -1:
+            LOGIC.score += self.worth
         if self.specialty > -1:
             if self.specialty == 0:
                 LOGIC.powerups.append(POWERUP(myrect.centerx,myrect.centery))
@@ -645,7 +655,7 @@ class LOGIC():
     paused = False
     score = 0
     hazard = [0] #confused
-    powerup = [0,0,100,0] #stronger, homing, big paddle, shoot
+    powerup = [0,0,0,0] #stronger, homing, big paddle, shoot
     tutorialtimer = 60
 
     def blockspawner(self,blocklist,br,bc,spacing,pnum):
