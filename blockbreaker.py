@@ -29,6 +29,9 @@ blocksprites = [
     g.transform.scale(g.image.load(path.join('sprites\\purpleblock.png')).convert_alpha(), (blockw,blockh)),
 ]
 
+explodingsprite = g.image.load(path.join('sprites\\explodingcover.png'))
+explodingsprite.set_alpha(100)
+homingoutline = g.image.load(path.join('sprites\\homingoutline.png'))
 ghostblocksprite = g.transform.scale(g.image.load(path.join('sprites\\ghost.png')).convert_alpha(), (blockw,blockh))
 powerupsprite = g.image.load(path.join('sprites\\powerupsprite.png'))
 strongsprite = g.image.load(path.join('sprites\\strongaura.png'))
@@ -54,7 +57,6 @@ ballblocksprites = [g.transform.scale(colorblend(g.image.load(path.join('sprites
 explosiveblocksprites = [g.transform.scale(colorblend(g.image.load(path.join('sprites\\explosive.png')).convert_alpha(), blockcolor[i]), (blockw,blockh)) for i in range(len(blockcolor))]
 heartblocksprites = [g.transform.scale(colorblend(g.image.load(path.join('sprites\\heart.png')).convert_alpha(), blockcolor[i]), (blockw,blockh)) for i in range(len(blockcolor))]
 
-
 def degtorad(angle):
     return angle * (pi/180)
 
@@ -76,12 +78,24 @@ def drawtext(text,size,color,x,y,align = "left"):
     WIN.blit(rtext, textrect)
 
 #only allows spritesheets in one horizontal line
-def get_anim_frame(sheet,framew,frameh,realw,realh,totanimtime,animtime,framenum):
+def get_anim_frame(sheet,realw,realh,totanimtime,animtime,framenum):
+    framew = sheet.get_width()/framenum
+    frameh = sheet.get_height()
     frame = floor(interp(animtime,[0,totanimtime],[0,framenum-1]))
     img = g.Surface((framew,frameh)).convert_alpha()
     img.fill((0,0,0,0))
     img.blit(sheet, (0,0), (framew*frame,0,framew,frameh))
     return g.transform.scale(img,(realw,realh))
+
+def three_slice_horizontal(sprite,cornerw,cornerh,initialrect,realrect):
+    wratio = realrect.width / initialrect.width
+    s = g.transform.scale(sprite,(realrect.width,realrect.height))
+    centerimg = g.Surface((realrect.width-cornerw*2,realrect.height))
+    centerimg.blit(s, (0,0), ((cornerw+1)*wratio,0,(realrect.width-cornerw*2*wratio)-1,realrect.height))
+    img = g.Surface((realrect.width,realrect.height))
+    #img.blit(centerimg, (0,0))
+    #img.blit(corner, (centerimg.get_width(),0))
+    return img
 
 class BALL():
     spd = 6
@@ -188,6 +202,7 @@ class PADDLE():
     height = 15
     spd = 10
     inverted = False
+    sprite = g.image.load(path.join('sprites\\paddle.png'))
 
     def __init__(self):
         self.x = WIDTH/2 - self.width/2
@@ -266,15 +281,18 @@ class PADDLE():
                     self.x += PADDLE.spd
 
     def draw(self):
-        g.draw.rect(WIN,(255,255,255),g.Rect(self.x,self.y,self.width,self.height))
+        myrect = g.Rect(self.x,self.y,self.width,self.height)
+        WIN.blit(g.transform.scale(self.sprite,(self.width,self.height)),g.Rect(self.x,self.y+20,self.width,self.height))
+        WIN.blit(three_slice_horizontal(self.sprite,15,15,g.Rect(self.x,self.y,130,15),myrect),myrect)
         if LOGIC.powerup[3] > 0:
             g.draw.rect(WIN,(255,255,255),g.Rect(self.x+10,self.y-10,10,10))
             g.draw.rect(WIN,(255,255,255),g.Rect(self.x+self.width-20,self.y-10,10,10))
-        #WIN.blit(self.sprite,g.Rect(self.x,self.y,self.width,self.height))
 
 class BLOCK():
     width = blockw
     height = blockh
+    explsprite = explodingsprite
+    homingoutlinesprite = homingoutline
 
     def __init__(self,xx,yy,specialty):
         i = r.randint(0,4)
@@ -284,8 +302,7 @@ class BLOCK():
         self.ballsprite = ballblocksprites[i]
         self.explosivesprite = explosiveblocksprites[i]
         self.heartsprite = heartblocksprites[i]
-        self.explodingsprite = g.image.load(path.join('sprites\\explodingcover.png'))
-        self.explodingsprite.set_alpha(100)
+        self.hominganimtime = 0
         
         self.x = xx
         self.y = yy
@@ -380,7 +397,8 @@ class BLOCK():
         myrect = g.Rect(self.x,self.y,self.width,self.height)
 
         if self.targetted:
-            g.draw.rect(WIN,(255,255,255),g.Rect(self.x-2,self.y-2,self.width+4,self.height+4))
+            self.hominganimtime = self.hominganimtime + 1 if self.hominganimtime < 20 else 0
+            WIN.blit(get_anim_frame(BLOCK.homingoutlinesprite,self.width+4,self.height+4,20,self.hominganimtime,3),g.Rect(self.x-2,self.y-2,self.width+4,self.height+4))
             self.targetted = False
 
         WIN.blit(self.sprite,myrect)
@@ -403,9 +421,8 @@ class BLOCK():
 
         if self.exploding > 0:
             if self.exploding % 30 > 15:
-                WIN.blit(self.explodingsprite,myrect)
+                WIN.blit(BLOCK.explsprite,myrect)
             
-
 class BULLET():
 
     width = 6
@@ -530,11 +547,10 @@ class EXPLOSION():
 
         for i in self.explosionballs:
             i[3]+=1
-            WIN.blit(get_anim_frame(self.sprite,100,100,i[2],i[2],20,i[3],8),g.Rect(i[0],i[1],i[2],i[2]))
+            WIN.blit(get_anim_frame(self.sprite,i[2],i[2],20,i[3],8),g.Rect(i[0],i[1],i[2],i[2]))
             if i[3] > 19:
                 self.explosionballs.pop(self.explosionballs.index(i))
             
-
 class LIFEHEART():
 
     r = 150
@@ -629,7 +645,7 @@ class LOGIC():
     paused = False
     score = 0
     hazard = [0] #confused
-    powerup = [0,0,0,0] #stronger, homing, big paddle, shoot
+    powerup = [0,0,100,0] #stronger, homing, big paddle, shoot
     tutorialtimer = 60
 
     def blockspawner(self,blocklist,br,bc,spacing,pnum):
