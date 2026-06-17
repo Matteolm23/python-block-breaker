@@ -681,8 +681,15 @@ class LOGIC():
     paused = False
     score = 0
     highscore = 0
+<<<<<<< HEAD
     if not path.isfile(path.join('highscore.json')): system("mkdir highscore.json")
     with open(path.join('highscore.json')) as f: highscore = load(f); f.close()
+=======
+    if not path.isfile(path.join('highscore.json')):
+        system("touch highscore.json")
+    else:
+        with open(path.join('highscore.json')) as f: highscore = load(f); f.close()
+>>>>>>> a0890377987fa336b910f976c21e6c24be9b377a
     hazard = [0] #confused
     powerup = [0,0,0,0] #stronger, homing, big paddle, shoot
     tutorialtimer = 60
@@ -763,9 +770,13 @@ class LOGIC():
                 LOGIC.hazard = [0]
                 LOGIC.paused = False
                 if LOGIC.extralives < 0: 
+<<<<<<< HEAD
                     if LOGIC.score > LOGIC.highscore:
                         if not path.isfile(path.join('highscore.json')): system("mkdir highscore.json")
                         with open(path.join('highscore.json'), 'w') as f: dump(LOGIC.score, f); f.close()
+=======
+                    with open(path.join('highscore.json'), 'w') as f: dump(LOGIC.score, f); f.close()
+>>>>>>> a0890377987fa336b910f976c21e6c24be9b377a
                     exit()
                 BALL.start = False
                 self.balls.append(BALL(-100,HEIGHT*.85))
