@@ -1,7 +1,7 @@
 import pygame as g
 import random as r
 from sys import exit
-from os import path
+from os import path,system
 from math import sin,cos,pi,sqrt,acos,asin,floor,atan2
 from numpy import interp
 from json import dump,load
@@ -681,9 +681,10 @@ class LOGIC():
     paused = False
     score = 0
     highscore = 0
-    with open('highscore.json') as f:
-        highscore = load(f)
-        f.close()
+    if not path.isfile(path.join('highscore.json')):
+        system("touch highscore.json")
+    else:
+        with open(path.join('highscore.json')) as f: highscore = load(f); f.close()
     hazard = [0] #confused
     powerup = [0,0,0,0] #stronger, homing, big paddle, shoot
     tutorialtimer = 60
@@ -764,8 +765,7 @@ class LOGIC():
                 LOGIC.hazard = [0]
                 LOGIC.paused = False
                 if LOGIC.extralives < 0: 
-                    if LOGIC.score > LOGIC.highscore: 
-                        with open(path.join('highscore.json'), 'w') as f: dump(LOGIC.score, f); f.close()
+                    with open(path.join('highscore.json'), 'w') as f: dump(LOGIC.score, f); f.close()
                     exit()
                 BALL.start = False
                 self.balls.append(BALL(-100,HEIGHT*.85))
