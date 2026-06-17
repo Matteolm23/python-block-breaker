@@ -1,9 +1,10 @@
 import pygame as g
 import random as r
 from sys import exit
-from os import path
+from os import path,system
 from math import sin,cos,pi,sqrt,acos,asin,floor,atan2
 from numpy import interp
+from json import dump,load
 
 g.init()
 
@@ -35,6 +36,7 @@ powerupsprite = g.image.load(path.join('sprites\\powerupsprite.png'))
 strongsprite = g.image.load(path.join('sprites\\strongaura.png'))
 ballsprite = g.image.load(path.join('sprites\\ball.png'))
 extralifesprite = g.image.load(path.join('sprites\\extralife.png'))
+arrowsprite = g.image.load(path.join('sprites\\arrow.png'))
 
 hazardsprites = [
     g.image.load(path.join('sprites\\slowdebuff.png')),
@@ -117,6 +119,14 @@ class BALL():
         if not BALL.start:
             self.beforestartsize = 0
 
+    def startgame(self,mult = 1):
+        if self.beforestartsize >= 30:
+            angle = 45 * mult
+            self.rad = degtorad(angle-90)
+            self.vel[0] = self.spd*cos(self.rad)
+            self.vel[1] = self.spd*sin(self.rad)
+            BALL.start = True
+
     def step(self,paddle):
 
         if LOGIC.balls.index(self) == 0:
@@ -129,14 +139,12 @@ class BALL():
             self.x = paddle.x + paddle.width/2 - self.size/2
 
             keys = g.key.get_pressed()
-            if (keys[g.K_UP] or keys[g.K_w]) and self.beforestartsize >= 30:
-                angle = 45
+            if (keys[g.K_UP] or keys[g.K_w]) and not BALL.start:
+                m = 1
                 if keys[g.K_a] or keys[g.K_LEFT]:
-                    angle *= -1
-                self.rad = degtorad(angle-90)
-                self.vel[0] = self.spd*cos(self.rad)
-                self.vel[1] = self.spd*sin(self.rad)
-                BALL.start = True
+                    m = -1
+                self.startgame(m)
+  
         else:
             myrect = g.Rect(self.x+self.vel[0],self.y+self.vel[1],self.size+self.vel[0],self.size+self.vel[1])
             paddlerect = g.Rect(paddle.x,paddle.y,paddle.width,paddle.height)
@@ -189,6 +197,9 @@ class BALL():
 
     def draw(self):
         sprite = self.sprite
+        if LOGIC.paused:
+            arrow = g.transform.rotate(arrowsprite,(atan2(-self.vel[1],self.vel[0])*180)/pi)
+            WIN.blit(arrow,arrow.get_rect(center = (self.x+self.size/2,self.y+self.size/2)))
         if self.strong:
             sprite = colorblend(sprite,(200,30,0))
             aurasprite = g.transform.rotate(self.strongaurasprite,(atan2(-self.vel[1],self.vel[0])*180)/pi)
@@ -206,6 +217,7 @@ class PADDLE():
     sprite = g.image.load(path.join('sprites\\paddle.png'))
     cannonsprite = g.image.load(path.join('sprites\\paddlecannons.png'))
     cannonheight = 30
+    playingwithmouse = False
 
     def __init__(self):
         self.x = WIDTH/2 - self.width/2
@@ -265,10 +277,8 @@ class PADDLE():
             self.target = None
 
         keys = g.key.get_pressed()
-        if keys[g.K_0]:
-            if LOGIC.extralives + len(LOGIC.lifehearts) < 3:
-                LOGIC.lifehearts.append(LIFEHEART(300,400))
         if (keys[g.K_LEFT] or keys[g.K_a]):
+            PADDLE.playingwithmouse = False
             if self.inverted:
                 if self.width + self.x + self.spd < WIDTH:
                     self.x += PADDLE.spd
@@ -276,12 +286,31 @@ class PADDLE():
                 if self.x - self.spd > 0:
                     self.x -= PADDLE.spd
         if (keys[g.K_RIGHT] or keys[g.K_d]):
+            PADDLE.playingwithmouse = False
             if self.inverted:
                 if self.x - self.spd > 0:
                     self.x -= PADDLE.spd
             else:
                 if self.width + self.x + self.spd < WIDTH:
                     self.x += PADDLE.spd
+
+        if PADDLE.playingwithmouse:
+            mpos = g.mouse.get_pos()
+            cx = self.x + PADDLE.width/2
+            if mpos[0] > cx:
+                if not self.inverted:
+                    if self.width + self.x + self.spd < WIDTH:
+                        self.x += min(PADDLE.spd,mpos[0]-cx)
+                else:
+                    if self.x - self.spd > 0:
+                        self.x += min(-PADDLE.spd,mpos[0]-cx)
+            if mpos[0] < cx:
+                if not self.inverted:
+                    if self.x - self.spd > 0:
+                        self.x += max(-PADDLE.spd,mpos[0]-cx)
+                else:    
+                    if self.width + self.x + self.spd < WIDTH:
+                        self.x += max(PADDLE.spd,mpos[0]-cx)
 
     def draw(self):
         drawrect = g.Rect(self.x-10,self.y,self.width+20,self.height+15)
@@ -299,8 +328,6 @@ class PADDLE():
 class BLOCK():
     width = blockw
     height = blockh
-    explsprite = explodingsprite
-    homingoutlinesprite = homingoutline
 
     def __init__(self,xx,yy,specialty):
         i = r.randint(0,4)
@@ -407,7 +434,7 @@ class BLOCK():
 
         if self.targetted:
             self.hominganimtime = self.hominganimtime + 1 if self.hominganimtime < 20 else 0
-            WIN.blit(get_anim_frame(BLOCK.homingoutlinesprite,self.width+4,self.height+4,20,self.hominganimtime,3),g.Rect(self.x-2,self.y-2,self.width+4,self.height+4))
+            WIN.blit(get_anim_frame(homingoutline,self.width+4,self.height+4,20,self.hominganimtime,3),g.Rect(self.x-2,self.y-2,self.width+4,self.height+4))
             self.targetted = False
 
         WIN.blit(self.sprite,myrect)
@@ -430,7 +457,7 @@ class BLOCK():
 
         if self.exploding > 0:
             if self.exploding % 30 > 15:
-                WIN.blit(BLOCK.explsprite,myrect)
+                WIN.blit(explodingsprite,myrect)
             
 class BULLET():
 
@@ -592,7 +619,7 @@ class LIFEHEART():
         self.angle = self.angle - 5 if self.bouncespd > 0 else self.angle + 5
 
         if self.bouncing:
-            self.c += self.bouncespd
+            self.c += self.bouncespd    
         else:
             self.cy += 3
 
@@ -639,7 +666,7 @@ class LIFEHEART():
 class LOGIC():
     lifeslotsprite = g.transform.scale(g.image.load(path.join('sprites\\lifeslot.png')).convert_alpha(),(34,34))
     lifesprite = g.transform.scale(g.image.load(path.join('sprites\\life.png')).convert_alpha(),(34,34))
-    tutorialsprite = [g.transform.scale(g.image.load(path.join('sprites\\tutorial1.png')).convert_alpha(),(180,120)),g.transform.scale(g.image.load(path.join('sprites\\tutorial2.png')).convert_alpha(),(180,120))]
+    tutorialsprite = [g.transform.scale(g.image.load(path.join('sprites\\tutorial1.png')).convert_alpha(),(180,120)),g.transform.scale(g.image.load(path.join('sprites\\tutorial2.png')).convert_alpha(),(180,120)),g.transform.scale(g.image.load(path.join('sprites\\tutorial3.png')).convert_alpha(),(180,120))]
     blink = 0
     blocks = []
     powerups = []
@@ -653,6 +680,9 @@ class LOGIC():
     bc = 7
     paused = False
     score = 0
+    highscore = 0
+    if not path.isfile(path.join('highscore.json')): system("mkdir highscore.json")
+    with open(path.join('highscore.json')) as f: highscore = load(f); f.close()
     hazard = [0] #confused
     powerup = [0,0,0,0] #stronger, homing, big paddle, shoot
     tutorialtimer = 60
@@ -732,7 +762,11 @@ class LOGIC():
                 LOGIC.powerup = [0,0,0,0]
                 LOGIC.hazard = [0]
                 LOGIC.paused = False
-                if LOGIC.extralives < 0: exit()
+                if LOGIC.extralives < 0: 
+                    if LOGIC.score > LOGIC.highscore:
+                        if not path.isfile(path.join('highscore.json')): system("mkdir highscore.json")
+                        with open(path.join('highscore.json'), 'w') as f: dump(LOGIC.score, f); f.close()
+                    exit()
                 BALL.start = False
                 self.balls.append(BALL(-100,HEIGHT*.85))
 
@@ -761,6 +795,8 @@ class LOGIC():
         
         if self.paused and self.blink % 50 > 25:
             drawtext("PAUSED",50,"white",WIDTH/2,HEIGHT/2,"center")
+            drawtext("HIGH SCORE:",50,"white",WIDTH/2,HEIGHT/2+100,"center")
+            drawtext(LOGIC.highscore,50,"white",WIDTH/2,HEIGHT/2+150,"center")
 
         if LOGIC.tutorialtimer > 0:
             s = g.Surface((WIDTH,HEIGHT))
@@ -768,7 +804,7 @@ class LOGIC():
             WIN.blit(s,g.Rect(0,0,WIDTH,HEIGHT))
             for i in range(len(self.tutorialsprite)):
                 self.tutorialsprite[i].set_alpha(interp(LOGIC.tutorialtimer,[0,60],[0,255]))
-                WIN.blit(self.tutorialsprite[i],g.Rect(WIDTH/2-220+260*i,HEIGHT/2,180,120))
+                WIN.blit(self.tutorialsprite[i],g.Rect(WIDTH/2-300+230*i,HEIGHT/2,180,120))
 
         g.display.update()
 
@@ -782,6 +818,15 @@ while(1):
         if event.type == g.KEYUP:
             if event.key == g.K_ESCAPE and BALL.start:
                 LOGIC.paused = not LOGIC.paused
+        if event.type == g.MOUSEBUTTONUP:
+            if event.button == 1:
+                PADDLE.playingwithmouse = True
+            if event.button == 3 and BALL.start:
+                LOGIC.paused = not LOGIC.paused
+        if event.type == g.MOUSEWHEEL and event.y == 1:
+            if len(game.balls) == 1:
+                if not BALL.start:
+                    LOGIC.balls[0].startgame()
 
     game.step()
     game.draw()
