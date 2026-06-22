@@ -781,17 +781,6 @@ class LOGIC():
             if LOGIC.gameover and LOGIC.gameoverscreen < 60: LOGIC.gameoverscreen += 1
             if BALL.start and LOGIC.tutorialtimer > 0: LOGIC.tutorialtimer -= 1
 
-            if LOGIC.gameoverscreen >= 60:
-                keys = g.key.get_pressed()
-                if keys[g.K_SPACE]: 
-                    game = LOGIC()
-                    LOGIC.gameover = False
-                    LOGIC.gameoverscreen = 0
-                    LOGIC.score = 0
-                    LOGIC.extralives = 3
-                    LOGIC.paddle.x = WIDTH/2 - PADDLE.width/2
-                    BALL.spd = 6
-
     def draw(self):
         self.blink = self.blink+1 if self.blink < 50 else 0
 
@@ -837,11 +826,20 @@ class LOGIC():
             drawtext(LOGIC.score,30,"white",WIDTH/2,HEIGHT/2+100,"center",ta)
             drawtext("HIGH SCORE:",30,"white",WIDTH/2,HEIGHT/2-60,"center",ta)
             drawtext(LOGIC.highscore,30,"white",WIDTH/2,HEIGHT/2-30,"center",ta)
-            if self.blink % 50 > 25: drawtext("Press SPACE to restart",40,"white",WIDTH/2,HEIGHT/2+230,"center",ta)
+            if self.blink % 50 > 25: drawtext("Press SPACE or LMB to restart",30,"white",WIDTH/2,HEIGHT/2+230,"center",ta)
 
         g.display.update()
 
 game = LOGIC()
+
+def reset():
+    game = LOGIC()
+    LOGIC.gameover = False
+    LOGIC.gameoverscreen = 0
+    LOGIC.score = 0
+    LOGIC.extralives = 3
+    LOGIC.paddle.x = WIDTH/2 - PADDLE.width/2
+    BALL.spd = 6
 
 while(1):
 
@@ -851,9 +849,13 @@ while(1):
         if event.type == g.KEYUP:
             if event.key == g.K_ESCAPE and BALL.start and not LOGIC.gameover:
                 LOGIC.paused = not LOGIC.paused
+            if event.key == g.K_SPACE and LOGIC.gameoverscreen >= 60:
+                reset()
         if event.type == g.MOUSEBUTTONUP:
             if event.button == 1:
                 PADDLE.playingwithmouse = True
+                if LOGIC.gameoverscreen >= 60:
+                    reset()
             if event.button == 3 and BALL.start and not LOGIC.gameover:
                 LOGIC.paused = not LOGIC.paused
         if event.type == g.MOUSEWHEEL and event.y == 1:
