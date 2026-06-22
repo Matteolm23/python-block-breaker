@@ -67,9 +67,10 @@ def rad_from_center_diff(ballrect,paddlerect,incr,mult = 1,anglemax = 70):
     if abs(angle) < 10: angle = -10 if angle < 0 else 10
     return degtorad(angle+incr)
 
-def drawtext(text,size,color,x,y,align = "left"):
+def drawtext(text,size,color,x,y,align = "left",alpha = 255):
     font = g.font.Font('HERCULESPIXELFONTREGULAR-OVAX0.OTF', size)
     rtext = font.render(str(text),True,color)
+    rtext.set_alpha(alpha)
     textrect = rtext.get_rect(topleft = (x,y))
     if align == "right":
         textrect = rtext.get_rect(topright = (x,y))
@@ -276,41 +277,42 @@ class PADDLE():
         else:
             self.target = None
 
-        keys = g.key.get_pressed()
-        if (keys[g.K_LEFT] or keys[g.K_a]):
-            PADDLE.playingwithmouse = False
-            if self.inverted:
-                if self.width + self.x + self.spd < WIDTH:
-                    self.x += PADDLE.spd
-            else:
-                if self.x - self.spd > 0:
-                    self.x -= PADDLE.spd
-        if (keys[g.K_RIGHT] or keys[g.K_d]):
-            PADDLE.playingwithmouse = False
-            if self.inverted:
-                if self.x - self.spd > 0:
-                    self.x -= PADDLE.spd
-            else:
-                if self.width + self.x + self.spd < WIDTH:
-                    self.x += PADDLE.spd
-
-        if PADDLE.playingwithmouse:
-            mpos = g.mouse.get_pos()
-            cx = self.x + PADDLE.width/2
-            if mpos[0] > cx:
-                if not self.inverted:
+        if not LOGIC.gameover:
+            keys = g.key.get_pressed()
+            if (keys[g.K_LEFT] or keys[g.K_a]):
+                PADDLE.playingwithmouse = False
+                if self.inverted:
                     if self.width + self.x + self.spd < WIDTH:
-                        self.x += min(PADDLE.spd,mpos[0]-cx)
+                        self.x += PADDLE.spd
                 else:
                     if self.x - self.spd > 0:
-                        self.x += min(-PADDLE.spd,mpos[0]-cx)
-            if mpos[0] < cx:
-                if not self.inverted:
+                        self.x -= PADDLE.spd
+            if (keys[g.K_RIGHT] or keys[g.K_d]):
+                PADDLE.playingwithmouse = False
+                if self.inverted:
                     if self.x - self.spd > 0:
-                        self.x += max(-PADDLE.spd,mpos[0]-cx)
-                else:    
+                        self.x -= PADDLE.spd
+                else:
                     if self.width + self.x + self.spd < WIDTH:
-                        self.x += max(PADDLE.spd,mpos[0]-cx)
+                        self.x += PADDLE.spd
+
+            if PADDLE.playingwithmouse:
+                mpos = g.mouse.get_pos()
+                cx = self.x + PADDLE.width/2
+                if mpos[0] > cx:
+                    if not self.inverted:
+                        if self.width + self.x + self.spd < WIDTH:
+                            self.x += min(PADDLE.spd,mpos[0]-cx)
+                    else:
+                        if self.x - self.spd > 0:
+                            self.x += min(-PADDLE.spd,mpos[0]-cx)
+                if mpos[0] < cx:
+                    if not self.inverted:
+                        if self.x - self.spd > 0:
+                            self.x += max(-PADDLE.spd,mpos[0]-cx)
+                    else:    
+                        if self.width + self.x + self.spd < WIDTH:
+                            self.x += max(PADDLE.spd,mpos[0]-cx)
 
     def draw(self):
         drawrect = g.Rect(self.x-10,self.y,self.width+20,self.height+15)
@@ -688,6 +690,8 @@ class LOGIC():
     hazard = [0] #confused
     powerup = [0,0,0,0] #stronger, homing, big paddle, shoot
     tutorialtimer = 60
+    gameover = False
+    gameoverscreen = 0
 
     def blockspawner(self,blocklist,br,bc,spacing,pnum):
         offset = (WIDTH-((BLOCK.width+spacing)*bc))/2
@@ -755,7 +759,7 @@ class LOGIC():
             for i in self.powerups:i.step()
             for i in self.lifehearts:i.step()
 
-            if len(LOGIC.balls) == 0:
+            if len(LOGIC.balls) == 0 and not LOGIC.gameover:
                 LOGIC.extralives -= 1
                 LOGIC.powerups.clear()
                 LOGIC.hazards.clear()
@@ -765,12 +769,28 @@ class LOGIC():
                 LOGIC.hazard = [0]
                 LOGIC.paused = False
                 if LOGIC.extralives < 0: 
-                    with open(path.join('highscore.json'), 'w') as f: dump(LOGIC.score, f); f.close()
-                    exit()
-                BALL.start = False
-                self.balls.append(BALL(-100,HEIGHT*.85))
+                    if LOGIC.score > LOGIC.highscore:
+                        with open(path.join('highscore.json'), 'w') as f: dump(LOGIC.score, f); f.close()
+                        LOGIC.highscore = LOGIC.score
+                    LOGIC.gameover = True
+                    LOGIC.paused = False
+                else:
+                    BALL.start = False
+                    self.balls.append(BALL(-100,HEIGHT*.85))
 
+            if LOGIC.gameover and LOGIC.gameoverscreen < 60: LOGIC.gameoverscreen += 1
             if BALL.start and LOGIC.tutorialtimer > 0: LOGIC.tutorialtimer -= 1
+
+            if LOGIC.gameoverscreen >= 60:
+                keys = g.key.get_pressed()
+                if keys[g.K_SPACE]: 
+                    game = LOGIC()
+                    LOGIC.gameover = False
+                    LOGIC.gameoverscreen = 0
+                    LOGIC.score = 0
+                    LOGIC.extralives = 3
+                    LOGIC.paddle.x = WIDTH/2 - PADDLE.width/2
+                    BALL.spd = 6
 
     def draw(self):
         self.blink = self.blink+1 if self.blink < 50 else 0
@@ -806,6 +826,19 @@ class LOGIC():
                 self.tutorialsprite[i].set_alpha(interp(LOGIC.tutorialtimer,[0,60],[0,255]))
                 WIN.blit(self.tutorialsprite[i],g.Rect(WIDTH/2-300+230*i,HEIGHT/2,180,120))
 
+        if LOGIC.gameover:
+            s = g.Surface((WIDTH,HEIGHT))
+            s.set_alpha(interp(LOGIC.gameoverscreen,[0,60],[0,230]))
+            WIN.blit(s,g.Rect(0,0,WIDTH,HEIGHT))
+            
+            ta = interp(LOGIC.gameoverscreen,[0,60],[0,255])
+            drawtext("GAME OVER",90,"white",WIDTH/2,HEIGHT/2-220,"center",ta)
+            drawtext("SCORE:",30,"white",WIDTH/2,HEIGHT/2+70,"center",ta)
+            drawtext(LOGIC.score,30,"white",WIDTH/2,HEIGHT/2+100,"center",ta)
+            drawtext("HIGH SCORE:",30,"white",WIDTH/2,HEIGHT/2-60,"center",ta)
+            drawtext(LOGIC.highscore,30,"white",WIDTH/2,HEIGHT/2-30,"center",ta)
+            if self.blink % 50 > 25: drawtext("Press SPACE to restart",40,"white",WIDTH/2,HEIGHT/2+230,"center",ta)
+
         g.display.update()
 
 game = LOGIC()
@@ -816,12 +849,12 @@ while(1):
         if event.type == g.QUIT:
             exit()
         if event.type == g.KEYUP:
-            if event.key == g.K_ESCAPE and BALL.start:
+            if event.key == g.K_ESCAPE and BALL.start and not LOGIC.gameover:
                 LOGIC.paused = not LOGIC.paused
         if event.type == g.MOUSEBUTTONUP:
             if event.button == 1:
                 PADDLE.playingwithmouse = True
-            if event.button == 3 and BALL.start:
+            if event.button == 3 and BALL.start and not LOGIC.gameover:
                 LOGIC.paused = not LOGIC.paused
         if event.type == g.MOUSEWHEEL and event.y == 1:
             if len(game.balls) == 1:
